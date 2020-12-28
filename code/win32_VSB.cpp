@@ -1,6 +1,7 @@
 #include "defines.h"
 
 #include <windows.h>
+#include <xinput.h>
 
 // TODO: Move this in a header file
 struct win32_render_buffer
@@ -13,6 +14,65 @@ struct win32_render_buffer
 };
 
 global_variable bool globalRunning;
+
+
+// NOTE: This procedure is not required at all for the scope of this
+//project but it's a great example of how to mantain backwards
+//compatibility in a smart and clever way and also allow the player to
+//play the game without a controller.
+//CREDITS:(https://guide.handmadehero.org/code/day006/)
+
+// NOTE: XInputGetState
+#define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
+typedef X_INPUT_GET_STATE(x_input_get_state);
+X_INPUT_GET_STATE(XInputGetStateStub)
+{
+    return(0);
+}
+global_variable x_input_get_state *XInputGetState_ = XInputGetStateStub;
+#define XInputGetState XInputGetState_
+
+// NOTE: XInputSetState
+#define X_INPUT_SET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration)
+typedef X_INPUT_SET_STATE(x_input_set_state);
+X_INPUT_SET_STATE(XInputSetStateStub)
+{
+    return(0);
+}
+global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
+#define XInputSetState XInputSetState_
+
+internal void Win32LoadXInput()
+{
+    HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
+    if(XInputLibrary)
+    {
+        XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
+        XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
+    }
+    else
+    {
+        XInputLibrary = LoadLibraryA("xinput1_3.dll");
+        if(XInputLibrary)
+        {
+            XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
+            XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
+        }
+        else
+        {
+            XInputLibrary = LoadLibraryA("xinput9_1_0.dll");
+            
+            XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
+            XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
+
+            if(!XInputLibrary)
+            {
+                XInputGetState = XInputGetStateStub;
+                XInputSetState = XInputSetStateStub;
+            }
+        }
+    }
+}
 
 internal void Win32CrateRenderBuffer(win32_render_buffer *buffer, int width, int height)
 {
@@ -41,28 +101,71 @@ internal void Win32CrateRenderBuffer(win32_render_buffer *buffer, int width, int
     buffer->memory = VirtualAlloc(0, bitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
 }
 
-internal void Win32PaintWindow(HDC deviceContext, win32_render_buffer buffer)
+internal void Win32PaintWindow(HDC deviceContext, win32_render_buffer *buffer)
 {
     // NOTE: StretchDIBits is not the fastest way to show the back
-    // buffer in the window, this whould be BitBlt(), but is the less
-    // "parameters demanding" one. Since performance is not a real
-    // concern atm we will use this for now.
+    // buffer in the window, this whould be BitBlt(), but is less
+    // "parameters demanding". Since performance is not a real concern
+    // atm we will use this for now.
     StretchDIBits(deviceContext,
-                  0, 0, buffer.width, buffer.height,
-                  0, 0, buffer.width, buffer.height,
-                  buffer.memory, &buffer.info,
+                  0, 0, buffer->width, buffer->height,
+                  0, 0, buffer->width, buffer->height,
+                  buffer->memory, &buffer->info,
                   DIB_RGB_COLORS, SRCCOPY);
 }
 
-internal void Win32RenderWierdGradient(win32_render_buffer buffer, int redOffset, int greenOffset)
+internal void Win32RenderWierdGradient(win32_render_buffer *buffer, int redOffset, int greenOffset)
 {
-    for(int y = 0; y < buffer.height; y++)
+    uint32 *pixel = (uint32 *)buffer->memory;
+    for(int y = 0; y < buffer->height; y++)
     {
-        uint32 *pixel = ((uint32 *)buffer.memory) + (y*buffer.width);
-        for(int x = 0; x < buffer.width; x++)
+        for(int x = 0; x < buffer->width; x++)
         {
             *pixel++ = VSB_RGB(redOffset + x, greenOffset + y, 0);
         }
+    }
+}
+
+internal void Win32PoolControllerState(f32 *red, f32 *green)
+{
+    // TODO: Add multiple controllers support
+    int controllerIndex = 0;
+    XINPUT_STATE controllerState;
+    if(XInputGetState(controllerIndex, &controllerState) == ERROR_SUCCESS)
+    {
+        // NOTE: Controller plugged in
+        XINPUT_GAMEPAD *pad = &controllerState.Gamepad;
+
+        bool up = (pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
+        bool down = (pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
+        bool left = (pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
+        bool right = (pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
+        bool menu = (pad->wButtons & XINPUT_GAMEPAD_START);
+        bool view = (pad->wButtons & XINPUT_GAMEPAD_BACK);
+        bool lsButton = (pad->wButtons & XINPUT_GAMEPAD_LEFT_THUMB);
+        bool rsButton = (pad->wButtons & XINPUT_GAMEPAD_RIGHT_THUMB);
+        bool lb = (pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER);
+        bool rb = (pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER);
+        bool a = (pad->wButtons & XINPUT_GAMEPAD_A);
+        bool b = (pad->wButtons & XINPUT_GAMEPAD_B);
+        bool x = (pad->wButtons & XINPUT_GAMEPAD_X);
+        bool y = (pad->wButtons & XINPUT_GAMEPAD_Y);
+
+        // TODO: Handle dead-zones and normalize the values
+        uint8 lTrigger = pad->bLeftTrigger;
+        uint8 rTrigger = pad->bRightTrigger;
+        // TODO: Maybe use vectors once we have them?
+        int16 leftStickX = pad->sThumbLX;
+        int16 leftStickY = pad->sThumbLY;
+        int16 rightStickX = pad->sThumbRX;
+        int16 rightStickY = pad->sThumbRY;
+
+        if(a) *red += 0.5f;
+        if(b) *green += 0.5f;
+    }
+    else
+    {
+        // NOTE: Controller not aviable
     }
 }
 
@@ -77,6 +180,45 @@ LRESULT CALLBACK Win32WindowCallback(HWND window, UINT message, WPARAM wParam, L
             // TODO: Handle this as an error and recreate the window?
             OutputDebugStringA("WM_DESTROY\n");
             result = DefWindowProc(window, message, wParam, lParam);
+        } break;
+
+        case WM_KEYDOWN:
+        case WM_KEYUP:
+        {
+            bool prevStateDown = (lParam & (1 << 30)) != 0;
+            bool keyIsDown = (lParam & (1 << 31)) == 0;
+            
+            // NOTE: This way we process just the transision between the states
+            if(prevStateDown != keyIsDown)
+            {
+                switch(wParam)
+                {
+                    case 'W':
+                    {
+                        OutputDebugStringA("W\n");
+                    } break;
+                    case 'A':
+                    {
+                        OutputDebugStringA("A\n");
+                    } break;
+                    case 'S':
+                    {
+                        OutputDebugStringA("S\n");
+                    } break;
+                    case 'D':
+                    {
+                        OutputDebugStringA("D\n");
+                    } break;
+                    case 'Q':
+                    {
+                        OutputDebugStringA("Q\n");
+                    } break;
+                    case 'E':
+                    {
+                        OutputDebugStringA("E\n");
+                    } break;
+                }
+            }
         } break;
 
         case WM_CLOSE:
@@ -124,7 +266,11 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
                                             0, 0, instanceHandle, 0);
         if(windowHandle)
         {
+            // Game initialization
             globalRunning = true;
+
+            Win32LoadXInput();
+
             HDC deviceContext = GetDC(windowHandle);
             win32_render_buffer backBuffer;
             Win32CrateRenderBuffer(&backBuffer, VBS_WINDOW_WIDTH, VBS_WINDOW_HEIGHT);
@@ -145,10 +291,12 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
                     DispatchMessage(&message);
                 }
 
-                Win32RenderWierdGradient(backBuffer, (int)redOffset, (int)greenOffset);
-                Win32PaintWindow(deviceContext, backBuffer);
-                redOffset += 0.5;
-                greenOffset += 0.5;
+                Win32PoolControllerState(&redOffset, &greenOffset);
+
+                Win32RenderWierdGradient(&backBuffer, (int)redOffset, (int)greenOffset);
+                Win32PaintWindow(deviceContext, &backBuffer);
+                redOffset += 0.25f;
+                greenOffset += 0.25f;
             }
         }
     }
