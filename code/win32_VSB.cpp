@@ -1,5 +1,6 @@
 #include "defines.h"
 
+#include <stdio.h>
 #include <windows.h>
 #include <xinput.h>
 
@@ -169,6 +170,28 @@ internal void Win32PoolControllerState(f32 *red, f32 *green)
     }
 }
 
+void Win32ProfileCode(LARGE_INTEGER *lastCounter, LARGE_INTEGER perfCountFrequency,
+                      uint64 *lastCycleCount)
+{
+    LARGE_INTEGER endCounter;
+    QueryPerformanceCounter(&endCounter);
+    uint64 endCycleCount = __rdtsc();
+
+    int64 counterElapsed = endCounter.QuadPart - lastCounter->QuadPart;
+    uint64 cyclesElapsed = endCycleCount - *lastCycleCount;
+
+    f32 msPerFrame = (1000.0f*(f32)counterElapsed) / (f32)perfCountFrequency.QuadPart;
+    f32 FPS = (f32)perfCountFrequency.QuadPart / (f32)counterElapsed;
+    f32 MCyclesPF = (f32)cyclesElapsed / (1000.0f * 1000.0f);
+
+    char Buffer[256];
+    sprintf_s(Buffer, "Time:%.02fms,  FPS:%.02f,  Mc/f:%.02f\n", msPerFrame, FPS, MCyclesPF);
+    OutputDebugStringA(Buffer);
+
+    *lastCounter = endCounter;
+    *lastCycleCount = endCycleCount;
+}
+
 LRESULT CALLBACK Win32WindowCallback(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
 {
     LRESULT result = 0; // Return 0 if the message was processed
@@ -266,11 +289,16 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
                                             0, 0, instanceHandle, 0);
         if(windowHandle)
         {
-            // Game initialization
+            // NOTE: Profiling initialization
+            LARGE_INTEGER perfCountFrequency;
+            QueryPerformanceFrequency(&perfCountFrequency);
+            LARGE_INTEGER lastCounter;
+            QueryPerformanceCounter(&lastCounter);
+            uint64 lastCycleCount = __rdtsc();
+
+            // NOTE: Game initialization
             globalRunning = true;
-
             Win32LoadXInput();
-
             HDC deviceContext = GetDC(windowHandle);
             win32_render_buffer backBuffer;
             Win32CrateRenderBuffer(&backBuffer, VBS_WINDOW_WIDTH, VBS_WINDOW_HEIGHT);
@@ -297,6 +325,8 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
                 Win32PaintWindow(deviceContext, &backBuffer);
                 redOffset += 0.25f;
                 greenOffset += 0.25f;
+
+//                Win32ProfileCode(&lastCounter, perfCountFrequency, &lastCycleCount);
             }
         }
     }
