@@ -4,14 +4,13 @@
 #include <windows.h>
 #include <xinput.h>
 
+#include "vsb.h"
+
 // TODO: Move this in a header file
 struct win32_render_buffer
 {
     BITMAPINFO info;
-    void *memory;
-    int width;
-    int height;
-    int pitch;
+    render_buffer buffer;
 };
 
 global_variable bool globalRunning;
@@ -75,56 +74,43 @@ internal void Win32LoadXInput()
     }
 }
 
-internal void Win32CrateRenderBuffer(win32_render_buffer *buffer, int width, int height)
+internal void Win32CrateRenderBuffer(win32_render_buffer *win32Buffer, int width, int height)
 {
-    if(buffer->memory)
+    if(win32Buffer->buffer.memory)
     {
-        VirtualFree(buffer->memory, 0, MEM_RELEASE);
+        VirtualFree(win32Buffer->buffer.memory, 0, MEM_RELEASE);
     }
 
     int bytesPerPixel = 4;
-    buffer->width = width;
-    buffer->height = height;
-    buffer->pitch = width * bytesPerPixel;
+    win32Buffer->buffer.width = width;
+    win32Buffer->buffer.height = height;
 
     // NOTE: The negative biHeight field is the clue to Windows to
     // treat this bitmap as top-down.
-    buffer->info.bmiHeader.biSize = sizeof(buffer->info.bmiHeader);
-    buffer->info.bmiHeader.biWidth = width;
-    buffer->info.bmiHeader.biHeight = -height;
-    buffer->info.bmiHeader.biPlanes = 1;
-    buffer->info.bmiHeader.biBitCount = 32;
-    buffer->info.bmiHeader.biCompression = BI_RGB;
+    win32Buffer->info.bmiHeader.biSize = sizeof(win32Buffer->info.bmiHeader);
+    win32Buffer->info.bmiHeader.biWidth = width;
+    win32Buffer->info.bmiHeader.biHeight = -height;
+    win32Buffer->info.bmiHeader.biPlanes = 1;
+    win32Buffer->info.bmiHeader.biBitCount = 32;
+    win32Buffer->info.bmiHeader.biCompression = BI_RGB;
 
     // NOTE: The pages allocated with virtual alloc are arleady
     // cleared to 0, therefore the buffer is cleared to black for free
     int bitmapMemorySize = width * height * bytesPerPixel;
-    buffer->memory = VirtualAlloc(0, bitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
+    win32Buffer->buffer.memory = VirtualAlloc(0, bitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
 }
 
-internal void Win32PaintWindow(HDC deviceContext, win32_render_buffer *buffer)
+internal void Win32PaintWindow(HDC deviceContext, win32_render_buffer *win32Buffer)
 {
     // NOTE: StretchDIBits is not the fastest way to show the back
     // buffer in the window, this whould be BitBlt(), but is less
     // "parameters demanding". Since performance is not a real concern
     // atm we will use this for now.
     StretchDIBits(deviceContext,
-                  0, 0, buffer->width, buffer->height,
-                  0, 0, buffer->width, buffer->height,
-                  buffer->memory, &buffer->info,
+                  0, 0, win32Buffer->buffer.width, win32Buffer->buffer.height,
+                  0, 0, win32Buffer->buffer.width, win32Buffer->buffer.height,
+                  win32Buffer->buffer.memory, &win32Buffer->info,
                   DIB_RGB_COLORS, SRCCOPY);
-}
-
-internal void Win32RenderWierdGradient(win32_render_buffer *buffer, int redOffset, int greenOffset)
-{
-    uint32 *pixel = (uint32 *)buffer->memory;
-    for(int y = 0; y < buffer->height; y++)
-    {
-        for(int x = 0; x < buffer->width; x++)
-        {
-            *pixel++ = VSB_RGB(redOffset + x, greenOffset + y, 0);
-        }
-    }
 }
 
 internal void Win32PoolControllerState(f32 *red, f32 *green)
@@ -300,8 +286,8 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
             globalRunning = true;
             Win32LoadXInput();
             HDC deviceContext = GetDC(windowHandle);
-            win32_render_buffer backBuffer;
-            Win32CrateRenderBuffer(&backBuffer, VBS_WINDOW_WIDTH, VBS_WINDOW_HEIGHT);
+            win32_render_buffer win32BackBuffer;
+            Win32CrateRenderBuffer(&win32BackBuffer, VBS_WINDOW_WIDTH, VBS_WINDOW_HEIGHT);
 
             f32 redOffset = 0;
             f32 greenOffset = 0;
@@ -321,8 +307,8 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
 
                 Win32PoolControllerState(&redOffset, &greenOffset);
 
-                Win32RenderWierdGradient(&backBuffer, (int)redOffset, (int)greenOffset);
-                Win32PaintWindow(deviceContext, &backBuffer);
+                GameUpdateAndRender(win32BackBuffer.buffer, redOffset, greenOffset);
+                Win32PaintWindow(deviceContext, &win32BackBuffer);
                 redOffset += 0.25f;
                 greenOffset += 0.25f;
 

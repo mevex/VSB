@@ -5,6 +5,6 @@ set libraries=user32.lib gdi32.lib
 
 pushd build
 
-cl %compilerFlags% ..\code\win32_VSB.cpp %libraries%
+cl %compilerFlags% ..\code\win32_vsb.cpp ..\code\vsb.cpp %libraries%
 
 popd
