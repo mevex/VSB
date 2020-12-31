@@ -1,6 +1,5 @@
 #pragma once
 
-// TODO: maybe include stdint.h for these typedefs? Is it worth it?
 typedef unsigned char uint8;
 typedef unsigned short uint16;
 typedef unsigned int uint32;
@@ -24,3 +23,12 @@ typedef double f64;
 // NOTE: This macro is already defined in windows.h as RGB but i have
 // to redefine it to match the wierd memory layout used in GDI
 #define VSB_RGB(red, green, blue) (((uint8)(red))<<16)|(((uint8)(green))<<8)|((uint8)(blue))
+
+#define KB(value) ((value)*1024LL)
+#define MB(value) (KB(value)*1024LL)
+#define GB(value) (MB(value)*1024LL)
+#define TB(value) (GB(value)*1024LL)
+
+#define ArrayCount(array) ((izeof(array) / sizeof((array)[0]))
+
+// TODO: add asserts somehow

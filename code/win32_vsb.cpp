@@ -1,16 +1,18 @@
 #include "defines.h"
+#include "vsb.h"
 
 #include <stdio.h>
 #include <windows.h>
 #include <xinput.h>
 
-#include "vsb.h"
-
-// TODO: Move this in a header file
+// TODO: Maybe move this in a header file?
 struct win32_render_buffer
 {
     BITMAPINFO info;
-    render_buffer buffer;
+    void *memory;
+    int width;
+    int height;
+    //render_buffer buffer;
 };
 
 global_variable bool globalRunning;
@@ -27,7 +29,7 @@ global_variable bool globalRunning;
 typedef X_INPUT_GET_STATE(x_input_get_state);
 X_INPUT_GET_STATE(XInputGetStateStub)
 {
-    return(0);
+    return(ERROR_DEVICE_NOT_CONNECTED);
 }
 global_variable x_input_get_state *XInputGetState_ = XInputGetStateStub;
 #define XInputGetState XInputGetState_
@@ -37,7 +39,7 @@ global_variable x_input_get_state *XInputGetState_ = XInputGetStateStub;
 typedef X_INPUT_SET_STATE(x_input_set_state);
 X_INPUT_SET_STATE(XInputSetStateStub)
 {
-    return(0);
+    return(ERROR_DEVICE_NOT_CONNECTED);
 }
 global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 #define XInputSetState XInputSetState_
@@ -45,6 +47,15 @@ global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 internal void Win32LoadXInput()
 {
     HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
+    if(!XInputLibrary)
+    {
+        XInputLibrary = LoadLibraryA("xinput1_3.dll");
+        if(!XInputLibrary)
+        {
+            XInputLibrary = LoadLibraryA("xinput9_1_0.dll");
+        }
+    }
+
     if(XInputLibrary)
     {
         XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
@@ -52,38 +63,23 @@ internal void Win32LoadXInput()
     }
     else
     {
-        XInputLibrary = LoadLibraryA("xinput1_3.dll");
-        if(XInputLibrary)
-        {
-            XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
-            XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
-        }
-        else
-        {
-            XInputLibrary = LoadLibraryA("xinput9_1_0.dll");
-            
-            XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
-            XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
-
-            if(!XInputLibrary)
-            {
-                XInputGetState = XInputGetStateStub;
-                XInputSetState = XInputSetStateStub;
-            }
-        }
+        XInputGetState = XInputGetStateStub;
+        XInputSetState = XInputSetStateStub;
     }
 }
 
+// TODO: I/O STUFF HERE
+
 internal void Win32CrateRenderBuffer(win32_render_buffer *win32Buffer, int width, int height)
 {
-    if(win32Buffer->buffer.memory)
+    if(win32Buffer->memory)
     {
-        VirtualFree(win32Buffer->buffer.memory, 0, MEM_RELEASE);
+        VirtualFree(win32Buffer->memory, 0, MEM_RELEASE);
     }
 
     int bytesPerPixel = 4;
-    win32Buffer->buffer.width = width;
-    win32Buffer->buffer.height = height;
+    win32Buffer->width = width;
+    win32Buffer->height = height;
 
     // NOTE: The negative biHeight field is the clue to Windows to
     // treat this bitmap as top-down.
@@ -95,9 +91,13 @@ internal void Win32CrateRenderBuffer(win32_render_buffer *win32Buffer, int width
     win32Buffer->info.bmiHeader.biCompression = BI_RGB;
 
     // NOTE: The pages allocated with virtual alloc are arleady
-    // cleared to 0, therefore the buffer is cleared to black for free
+    // cleared to 0, therefore the buffer is cleared to black for
+    // free. The allocation must include also the MEM_RESERVE flag to
+    // ensure that the function succeed, otherwise there may occur an
+    // unexpected behavior and fail.
     int bitmapMemorySize = width * height * bytesPerPixel;
-    win32Buffer->buffer.memory = VirtualAlloc(0, bitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
+    win32Buffer->memory = VirtualAlloc(0, bitmapMemorySize,
+                                       MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
 }
 
 internal void Win32PaintWindow(HDC deviceContext, win32_render_buffer *win32Buffer)
@@ -107,9 +107,9 @@ internal void Win32PaintWindow(HDC deviceContext, win32_render_buffer *win32Buff
     // "parameters demanding". Since performance is not a real concern
     // atm we will use this for now.
     StretchDIBits(deviceContext,
-                  0, 0, win32Buffer->buffer.width, win32Buffer->buffer.height,
-                  0, 0, win32Buffer->buffer.width, win32Buffer->buffer.height,
-                  win32Buffer->buffer.memory, &win32Buffer->info,
+                  0, 0, win32Buffer->width, win32Buffer->height,
+                  0, 0, win32Buffer->width, win32Buffer->height,
+                  win32Buffer->memory, &win32Buffer->info,
                   DIB_RGB_COLORS, SRCCOPY);
 }
 
@@ -141,7 +141,7 @@ internal void Win32PoolControllerState(f32 *red, f32 *green)
         // TODO: Handle dead-zones and normalize the values
         uint8 lTrigger = pad->bLeftTrigger;
         uint8 rTrigger = pad->bRightTrigger;
-        // TODO: Maybe use vectors once we have them?
+        // TODO: use vectors once we have them
         int16 leftStickX = pad->sThumbLX;
         int16 leftStickY = pad->sThumbLY;
         int16 rightStickX = pad->sThumbRX;
@@ -286,33 +286,46 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
             globalRunning = true;
             Win32LoadXInput();
             HDC deviceContext = GetDC(windowHandle);
+
             win32_render_buffer win32BackBuffer;
             Win32CrateRenderBuffer(&win32BackBuffer, VBS_WINDOW_WIDTH, VBS_WINDOW_HEIGHT);
+            game_memory gameMemory = {};
+            gameMemory.backBuffer.memory = win32BackBuffer.memory;
+            gameMemory.backBuffer.width = win32BackBuffer.width;
+            gameMemory.backBuffer.height = win32BackBuffer.height;
+            gameMemory.memorySize = MB(64);
+            gameMemory.memory = VirtualAlloc(0, gameMemory.memorySize,
+                                             MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
 
-            f32 redOffset = 0;
-            f32 greenOffset = 0;
-            while(globalRunning)
+            if(gameMemory.memory)
             {
-                MSG message;
-                while(PeekMessage(&message, 0, 0, 0, PM_REMOVE))
+                while(globalRunning)
                 {
-                    if(message.message == WM_QUIT)
+                    MSG message;
+                    while(PeekMessage(&message, 0, 0, 0, PM_REMOVE))
                     {
-                        globalRunning = false;
+                        if(message.message == WM_QUIT)
+                        {
+                            globalRunning = false;
+                        }
+
+                        TranslateMessage(&message);
+                        DispatchMessage(&message);
                     }
 
-                    TranslateMessage(&message);
-                    DispatchMessage(&message);
+                    // TODO: Remove these offsets and change the function
+                    f32 redOffset, greenOffset;
+                    Win32PoolControllerState(&redOffset, &greenOffset);
+
+                    GameUpdateAndRender(&gameMemory);
+                    Win32PaintWindow(deviceContext, &win32BackBuffer);
+
+//                    Win32ProfileCode(&lastCounter, perfCountFrequency, &lastCycleCount);
                 }
-
-                Win32PoolControllerState(&redOffset, &greenOffset);
-
-                GameUpdateAndRender(win32BackBuffer.buffer, redOffset, greenOffset);
-                Win32PaintWindow(deviceContext, &win32BackBuffer);
-                redOffset += 0.25f;
-                greenOffset += 0.25f;
-
-//                Win32ProfileCode(&lastCounter, perfCountFrequency, &lastCycleCount);
+            }
+            else
+            {
+                OutputDebugStringA("Memory allocation failed");
             }
         }
     }

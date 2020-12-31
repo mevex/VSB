@@ -14,7 +14,15 @@ internal void RenderWierdGradient(render_buffer buffer, int redOffset, int green
     }
 }
 
-void GameUpdateAndRender(render_buffer buffer, f32 redOffset, f32 greenOffset)
+void GameUpdateAndRender(game_memory *gameMemory)
 {
-    RenderWierdGradient(buffer, (int)redOffset, (int)greenOffset);
+    // TODO: we use the allocated memory like this, FOR NOW!
+    game_state *gameState = (game_state *)gameMemory->memory;
+    if(!gameMemory->initialized)
+    {
+        // NOTE: game state and stuff initialization
+        gameMemory->initialized = true;
+    }
+
+    RenderWierdGradient(gameMemory->backBuffer, (int)gameState->redOffset, (int)gameState->greenOffset);
 }
