@@ -6,6 +6,55 @@
 
 // NOTE: Services that the game provides to the platform layer
 
+struct controller
+{
+    union
+    {
+        bool buttons[16];
+        struct
+        {
+            bool up;
+            bool down;
+            bool left;
+            bool right;
+
+            bool a;
+            bool b;
+            bool x;
+            bool y;
+
+            bool leftBumper;
+            bool rightBumper;
+            bool leftTrigger;
+            bool rightTrigger;
+
+            bool menu; // Start
+            bool view; // Select/Back
+            bool leftThumb;
+            bool rightThumb;
+        };
+    };
+
+    f32 leftTriggerValue;
+    f32 rightTriggerValue;
+
+    // TODO Vectorize this
+    f32 leftStickX;
+    f32 leftStickY;
+    f32 rightStickX;
+    f32 rightStickY;
+
+    bool connected;
+};
+
+struct game_input
+{
+    controller gamepad;
+    controller keyboard;
+
+    bool analog;
+};
+
 struct render_buffer
 {
     void *memory;
@@ -25,9 +74,10 @@ struct game_memory
 
 struct game_state
 {
-    f32 redOffset = 0;
-    f32 greenOffset = 0;
+    // TODO: maybe add frame time here?
+    // TODO: these are just dummy values
+    f32 redOffset, greenOffset;
+    int a, b;
 };
 
-// TODO: add input to the parameters
-void GameUpdateAndRender(game_memory *gameMemory);
+void GameUpdateAndRender(game_memory *gameMemory, game_input *input);

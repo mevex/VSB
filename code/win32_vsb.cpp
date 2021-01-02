@@ -44,6 +44,9 @@ X_INPUT_SET_STATE(XInputSetStateStub)
 global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 #define XInputSetState XInputSetState_
 
+#define VSB_GAMEPAD_THUMB_DEADZONE 3000
+#define VSB_GAMEPAD_TRIGGER_THRESHOLD 30
+
 internal void Win32LoadXInput()
 {
     HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
@@ -113,7 +116,35 @@ internal void Win32PaintWindow(HDC deviceContext, win32_render_buffer *win32Buff
                   DIB_RGB_COLORS, SRCCOPY);
 }
 
-internal void Win32PoolControllerState(f32 *red, f32 *green)
+internal f32 Win32NormalizeStickValue(int value, int deadZone)
+{
+    f32 result = 0;
+
+    if(value < -deadZone)
+    {
+        result = (f32)(value + deadZone) / (f32)(32768 - deadZone);
+    }
+    else if(value > deadZone)
+    {
+        result = (f32)(value - deadZone) / (f32)(32767 - deadZone);
+    }
+
+    return result;
+}
+
+internal f32 Win32NormalizeTriggerValue(int value, int deadZone)
+{
+    f32 result = 0;
+
+    if(value > deadZone)
+    {
+        result = (f32)(value - deadZone) / (f32)(255 - deadZone);
+    }
+
+    return result;
+}
+
+internal void Win32PoolGamepadState(controller *gamepad)
 {
     // TODO: Add multiple controllers support
     int controllerIndex = 0;
@@ -121,38 +152,110 @@ internal void Win32PoolControllerState(f32 *red, f32 *green)
     if(XInputGetState(controllerIndex, &controllerState) == ERROR_SUCCESS)
     {
         // NOTE: Controller plugged in
+        gamepad->connected = true;
         XINPUT_GAMEPAD *pad = &controllerState.Gamepad;
 
-        bool up = (pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
-        bool down = (pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
-        bool left = (pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
-        bool right = (pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
-        bool menu = (pad->wButtons & XINPUT_GAMEPAD_START);
-        bool view = (pad->wButtons & XINPUT_GAMEPAD_BACK);
-        bool lsButton = (pad->wButtons & XINPUT_GAMEPAD_LEFT_THUMB);
-        bool rsButton = (pad->wButtons & XINPUT_GAMEPAD_RIGHT_THUMB);
-        bool lb = (pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER);
-        bool rb = (pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER);
-        bool a = (pad->wButtons & XINPUT_GAMEPAD_A);
-        bool b = (pad->wButtons & XINPUT_GAMEPAD_B);
-        bool x = (pad->wButtons & XINPUT_GAMEPAD_X);
-        bool y = (pad->wButtons & XINPUT_GAMEPAD_Y);
+        gamepad->up = (pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
+        gamepad->down = (pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
+        gamepad->left = (pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
+        gamepad->right = (pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
 
-        // TODO: Handle dead-zones and normalize the values
-        uint8 lTrigger = pad->bLeftTrigger;
-        uint8 rTrigger = pad->bRightTrigger;
-        // TODO: use vectors once we have them
-        int16 leftStickX = pad->sThumbLX;
-        int16 leftStickY = pad->sThumbLY;
-        int16 rightStickX = pad->sThumbRX;
-        int16 rightStickY = pad->sThumbRY;
+        gamepad->a = (pad->wButtons & XINPUT_GAMEPAD_A);
+        gamepad->b = (pad->wButtons & XINPUT_GAMEPAD_B);
+        gamepad->x = (pad->wButtons & XINPUT_GAMEPAD_X);
+        gamepad->y = (pad->wButtons & XINPUT_GAMEPAD_Y);
 
-        if(a) *red += 0.5f;
-        if(b) *green += 0.5f;
+        gamepad->leftBumper = (pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER);
+        gamepad->rightBumper = (pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER);
+
+        gamepad->menu = (pad->wButtons & XINPUT_GAMEPAD_START);
+        gamepad->view = (pad->wButtons & XINPUT_GAMEPAD_BACK);
+        gamepad->leftThumb = (pad->wButtons & XINPUT_GAMEPAD_LEFT_THUMB);
+        gamepad->rightThumb = (pad->wButtons & XINPUT_GAMEPAD_RIGHT_THUMB);
+
+        gamepad->leftTriggerValue = Win32NormalizeTriggerValue(pad->bLeftTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD);
+        gamepad->leftTriggerValue = Win32NormalizeTriggerValue(pad->bRightTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD);
+
+        gamepad->leftStickX = Win32NormalizeStickValue(pad->sThumbLX, VSB_GAMEPAD_TRIGGER_THRESHOLD);
+        gamepad->leftStickY = Win32NormalizeStickValue(pad->sThumbLY, VSB_GAMEPAD_TRIGGER_THRESHOLD);
+        gamepad->rightStickX = Win32NormalizeStickValue(pad->sThumbRX, VSB_GAMEPAD_TRIGGER_THRESHOLD);
+        gamepad->rightStickY = Win32NormalizeStickValue(pad->sThumbRY, VSB_GAMEPAD_TRIGGER_THRESHOLD);
     }
     else
     {
         // NOTE: Controller not aviable
+        gamepad->connected = false;
+    }
+}
+
+internal void Win32ProcessKeyboardInput(controller *keyboard, WPARAM VKCode, LPARAM lParam)
+{
+    bool prevStateDown = (lParam & (1 << 30)) != 0;
+    bool keyIsDown = (lParam & (1 << 31)) == 0;
+            
+    // NOTE: This way we process just the transision between the states
+    if(prevStateDown != keyIsDown)
+    {
+        switch(VKCode)
+        {
+            case 'W':
+            {
+                keyboard->up = keyIsDown;
+                keyboard->leftStickY = keyIsDown ? 1.0f : 0;
+            } break;
+
+            case 'A':
+            {
+                keyboard->down = keyIsDown;
+                keyboard->leftStickY = keyIsDown ? -1.0f : 0;
+            } break;
+
+            case 'S':
+            {
+                keyboard->left = keyIsDown;
+                keyboard->leftStickX = keyIsDown ? -1.0f : 0;
+            } break;
+
+            case 'D':
+            {
+                keyboard->right = keyIsDown;
+                keyboard->leftStickX = keyIsDown ? 1.0f : 0;
+            } break;
+
+            case VK_UP:
+            {
+                keyboard->y = keyIsDown;
+                keyboard->rightStickY = keyIsDown ? 1.0f : 0;
+            } break;
+
+            case VK_DOWN:
+            {
+                keyboard->a = keyIsDown;
+                keyboard->rightStickY = keyIsDown ? -1.0f : 0;
+            } break;
+
+            case VK_LEFT:
+            {
+                keyboard->x = keyIsDown;
+                keyboard->rightStickX = keyIsDown ? -1.0f : 0;
+            } break;
+
+            case VK_RIGHT:
+            {
+                keyboard->b = keyIsDown;
+                keyboard->rightStickX = keyIsDown ? 1.0f : 0;
+            } break;
+
+            case 'Q':
+            {
+                keyboard->leftBumper = keyIsDown;
+            } break;
+
+            case 'E':
+            {
+                keyboard->rightBumper = keyIsDown;
+            } break;
+        }
     }
 }
 
@@ -194,45 +297,14 @@ LRESULT CALLBACK Win32WindowCallback(HWND window, UINT message, WPARAM wParam, L
         case WM_KEYDOWN:
         case WM_KEYUP:
         {
-            bool prevStateDown = (lParam & (1 << 30)) != 0;
-            bool keyIsDown = (lParam & (1 << 31)) == 0;
-            
-            // NOTE: This way we process just the transision between the states
-            if(prevStateDown != keyIsDown)
-            {
-                switch(wParam)
-                {
-                    case 'W':
-                    {
-                        OutputDebugStringA("W\n");
-                    } break;
-                    case 'A':
-                    {
-                        OutputDebugStringA("A\n");
-                    } break;
-                    case 'S':
-                    {
-                        OutputDebugStringA("S\n");
-                    } break;
-                    case 'D':
-                    {
-                        OutputDebugStringA("D\n");
-                    } break;
-                    case 'Q':
-                    {
-                        OutputDebugStringA("Q\n");
-                    } break;
-                    case 'E':
-                    {
-                        OutputDebugStringA("E\n");
-                    } break;
-                }
-            }
+            // TODO insert assertion
+            OutputDebugStringA("WARNING! Keyboard message passed through the callback\n");
         } break;
 
         case WM_CLOSE:
         {
-            globalRunning = false;
+            // TODO: Ask for confirmation
+            PostQuitMessage(0);
         } break;
 
         default:
@@ -271,7 +343,7 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
                                             "Valentino's SandBox",
                                             (WS_OVERLAPPEDWINDOW|WS_VISIBLE)^WS_THICKFRAME,
                                             CW_USEDEFAULT, CW_USEDEFAULT,
-                                            VBS_WINDOW_WIDTH, VBS_WINDOW_HEIGHT,
+                                            1280, 720,
                                             0, 0, instanceHandle, 0);
         if(windowHandle)
         {
@@ -282,13 +354,18 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
             QueryPerformanceCounter(&lastCounter);
             uint64 lastCycleCount = __rdtsc();
 
+            // NOTE: Input initialization
+            Win32LoadXInput();
+            game_input input = {};
+            input.keyboard.connected = true;
+            input.analog = false;
+
             // NOTE: Game initialization
             globalRunning = true;
-            Win32LoadXInput();
-            HDC deviceContext = GetDC(windowHandle);
 
+            HDC deviceContext = GetDC(windowHandle);
             win32_render_buffer win32BackBuffer;
-            Win32CrateRenderBuffer(&win32BackBuffer, VBS_WINDOW_WIDTH, VBS_WINDOW_HEIGHT);
+            Win32CrateRenderBuffer(&win32BackBuffer, 1280, 720);
             game_memory gameMemory = {};
             gameMemory.backBuffer.memory = win32BackBuffer.memory;
             gameMemory.backBuffer.width = win32BackBuffer.width;
@@ -306,18 +383,23 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
                     {
                         if(message.message == WM_QUIT)
                         {
+                            OutputDebugStringA("Quit message\n");
                             globalRunning = false;
                         }
-
-                        TranslateMessage(&message);
-                        DispatchMessage(&message);
+                        else if(message.message == WM_KEYDOWN ||
+                                message.message == WM_KEYUP)
+                        {
+                            Win32ProcessKeyboardInput(&input.keyboard, message.wParam, message.lParam);
+                        }
+                        else
+                        {
+                            TranslateMessage(&message);
+                            DispatchMessage(&message);
+                        }
                     }
 
-                    // TODO: Remove these offsets and change the function
-                    f32 redOffset, greenOffset;
-                    Win32PoolControllerState(&redOffset, &greenOffset);
-
-                    GameUpdateAndRender(&gameMemory);
+                    Win32PoolGamepadState(&input.gamepad);
+                    GameUpdateAndRender(&gameMemory, &input);
                     Win32PaintWindow(deviceContext, &win32BackBuffer);
 
 //                    Win32ProfileCode(&lastCounter, perfCountFrequency, &lastCycleCount);

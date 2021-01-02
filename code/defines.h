@@ -17,9 +17,6 @@ typedef double f64;
 #define global_variable static
 #define internal static
 
-#define VBS_WINDOW_WIDTH 1280
-#define VBS_WINDOW_HEIGHT 720
-
 // NOTE: This macro is already defined in windows.h as RGB but i have
 // to redefine it to match the wierd memory layout used in GDI
 #define VSB_RGB(red, green, blue) (((uint8)(red))<<16)|(((uint8)(green))<<8)|((uint8)(blue))
@@ -29,6 +26,6 @@ typedef double f64;
 #define GB(value) (MB(value)*1024LL)
 #define TB(value) (GB(value)*1024LL)
 
-#define ArrayCount(array) ((izeof(array) / sizeof((array)[0]))
+#define ArrayCount(array) ((sizeof(array) / sizeof((array)[0]))
 
 // TODO: add asserts somehow
