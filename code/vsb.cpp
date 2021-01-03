@@ -42,6 +42,14 @@ void GameUpdateAndRender(game_memory *gameMemory, game_input *input)
 
         gameState->a = 100;
         gameState->b = 100;
+
+        char *filename = __FILE__;
+        debug_file file = DebugReadFile(filename);
+        if(file.memory)
+        {
+            DebugWriteFile("test.out", file.size, file.memory);
+            DebugFreeFile(&file);
+        }
     }
 
     gameState->redOffset += 0.5f;

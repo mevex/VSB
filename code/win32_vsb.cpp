@@ -71,7 +71,69 @@ internal void Win32LoadXInput()
     }
 }
 
-// TODO: I/O STUFF HERE
+void DebugFreeFile(debug_file *file)
+{
+    if(file->memory)
+    {
+        VirtualFree(file->memory, 0, MEM_RELEASE);
+        file->memory = 0;
+        file->size = 0;
+    }
+}
+
+debug_file DebugReadFile(char *filename)
+{
+    debug_file result = {};
+        
+    HANDLE fileHandle = CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    if(fileHandle != INVALID_HANDLE_VALUE)
+    {
+        LARGE_INTEGER fileSize64;
+        if(GetFileSizeEx(fileHandle, &fileSize64))
+        {
+            uint32 fileSize = (int)fileSize64.QuadPart;
+            result.memory = VirtualAlloc(0, fileSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+            if(result.memory)
+            {
+                DWORD bytesRead;
+                if(ReadFile(fileHandle, result.memory, fileSize, &bytesRead, 0) &&
+                   (fileSize == bytesRead))
+                {
+                    // NOTE: File read successfully
+                    result.size = fileSize;
+                }
+                else
+                {
+                    DebugFreeFile(&result);
+                    result.memory = 0;
+                }
+            }
+        }
+        CloseHandle(fileHandle);
+    }
+
+    return result;
+}
+
+bool DebugWriteFile(char *filename, uint32 fileSize, void *memory)
+{
+    bool result = false;
+
+    HANDLE fileHandle = CreateFile(filename, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+    if(fileHandle != INVALID_HANDLE_VALUE)
+    {
+        DWORD bytesWritten;
+        if(WriteFile(fileHandle, memory, fileSize, &bytesWritten, 0) &&
+           (fileSize == bytesWritten))
+        {
+            // NOTE: File written successfully
+            result = (bytesWritten == fileSize);
+        }
+        CloseHandle(fileHandle);
+    }
+
+    return result;
+}
 
 internal void Win32CrateRenderBuffer(win32_render_buffer *win32Buffer, int width, int height)
 {

@@ -2,7 +2,16 @@
 
 // NOTE: Services that the platform layer provides to the game
 
-
+// NOTE: These file I/O functions are NOT safe and are meant to be
+// used only for debugging purposes during development.
+struct debug_file
+{
+    uint32 size;
+    void *memory;
+};
+void DebugFreeFile(debug_file *file);
+debug_file DebugReadFile(char *fileName);
+bool DebugWriteFile(char *filename, uint32 fileSize, void *memory);
 
 // NOTE: Services that the game provides to the platform layer
 
