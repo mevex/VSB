@@ -11,9 +11,9 @@ struct point
 
 void InterporateThreePoints(point p0, point p1, point p2, uint32 color, render_buffer buffer)
 {
-    int dx = p2.x - p0.x;
-    int dy = p2.y - p0.y;
-    int maxd = Max(dx, dy) * 2;
+    int dx = ABS(p1.x - p0.x) + ABS(p2.x - p1.x);
+    int dy = ABS(p1.y - p0.y) + ABS(p2.y - p1.y);
+    int maxd = Max(dx, dy);
     f32 delta = 1.0f / (f32)maxd;
 
     int thickness = 2;
@@ -35,9 +35,9 @@ void InterporateThreePoints(point p0, point p1, point p2, uint32 color, render_b
 
 void InterporateFourPoints(point p0, point p1, point p2, point p3, uint32 color, render_buffer buffer)
 {
-    int dx = p3.x - p0.x;
-    int dy = p3.y - p0.y;
-    int maxd = Max(dx, dy) * 2;
+    int dx = ABS(p1.x - p0.x) + ABS(p2.x - p1.x) + ABS(p2.x - p3.x);
+    int dy = ABS(p1.y - p0.y) + ABS(p2.y - p1.y) + ABS(p2.y - p3.y);
+    int maxd = Max(dx, dy);
     f32 delta = 1.0f / (f32)maxd;
 
     int thickness = 2;
