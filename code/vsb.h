@@ -86,7 +86,8 @@ struct game_state
     // TODO: maybe add frame time here?
     // TODO: these are just dummy values
     f32 redOffset, greenOffset;
-    int a, b;
+    int x0, x1, x2, x3;
+    int y0, y1, y2, y3;
 };
 
 void GameUpdateAndRender(game_memory *gameMemory, game_input *input);

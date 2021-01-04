@@ -266,13 +266,13 @@ internal void Win32ProcessKeyboardInput(controller *keyboard, WPARAM VKCode, LPA
                 keyboard->leftStickY = keyIsDown ? 1.0f : 0;
             } break;
 
-            case 'A':
+            case 'S':
             {
                 keyboard->down = keyIsDown;
                 keyboard->leftStickY = keyIsDown ? -1.0f : 0;
             } break;
 
-            case 'S':
+            case 'A':
             {
                 keyboard->left = keyIsDown;
                 keyboard->leftStickX = keyIsDown ? -1.0f : 0;
@@ -403,9 +403,9 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
         HWND windowHandle = CreateWindowExA(0,
                                             windowClass.lpszClassName,
                                             "Valentino's SandBox",
-                                            (WS_OVERLAPPEDWINDOW|WS_VISIBLE)^WS_THICKFRAME,
+                                            (WS_OVERLAPPEDWINDOW|WS_VISIBLE),
                                             CW_USEDEFAULT, CW_USEDEFAULT,
-                                            1280, 720,
+                                            1296, 759,
                                             0, 0, instanceHandle, 0);
         if(windowHandle)
         {
