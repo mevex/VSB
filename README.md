@@ -22,3 +22,10 @@ I will continue to update this list with present and planned features.
  - [x] Basic file I/O
  - [ ] Fixed frame rate
  - [ ] Bitmap loading
+ 
+# Experiments
+Here I will list all the experiment that I will be doing during the development and I will show the result.
+
+## Interpolation and Bezier curve rendering
+While studying for university I came across the theory behind the Bezier curves and decided to try to implement one myself. The code can be found in `test_interpolation.cpp`
+![Interpolation of a Bezier curve](test-results/bezier.jpg)

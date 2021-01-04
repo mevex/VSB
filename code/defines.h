@@ -27,5 +27,8 @@ typedef double f64;
 #define TB(value) (GB(value)*1024LL)
 
 #define ArrayCount(array) ((sizeof(array) / sizeof((array)[0]))
+#define Assert(expression) if(!(expression)) {*(int *)0 = 0;}
 
-// TODO: add asserts somehow
+#define Max(a, b) ((a)>(b)) ? a : b
+#define Min(a, b) ((a)<(b)) ? a : b
+#define Clamp(value, min, max) ((value)>(max)) ? (max) : (((value)<(min)) ? (min) : (value))
