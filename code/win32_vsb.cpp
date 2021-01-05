@@ -15,6 +15,7 @@ struct win32_render_buffer
     //render_buffer buffer;
 };
 
+global_variable LARGE_INTEGER globalPerfCountFreq;
 global_variable bool globalRunning;
 
 
@@ -321,25 +322,36 @@ internal void Win32ProcessKeyboardInput(controller *keyboard, WPARAM VKCode, LPA
     }
 }
 
-void Win32ProfileCode(LARGE_INTEGER *lastCounter, LARGE_INTEGER perfCountFrequency,
-                      uint64 *lastCycleCount)
+internal uint64 Win32GetTime()
 {
-    LARGE_INTEGER endCounter;
-    QueryPerformanceCounter(&endCounter);
-    uint64 endCycleCount = __rdtsc();
+    LARGE_INTEGER time;
+    QueryPerformanceCounter(&time);
+    return (uint64)time.QuadPart;
+}
 
-    int64 counterElapsed = endCounter.QuadPart - lastCounter->QuadPart;
+internal f32 Win32GetMSDifference(uint64 timeToCompare)
+{
+    uint64 timeNow = Win32GetTime();
+    f32 resultMS = ((f32)(timeNow - timeToCompare) / (f32)globalPerfCountFreq.QuadPart)*1000.0f;
+    return resultMS;
+}
+
+internal void Win32ProfileCode(uint64 *lastCounter, uint64 *lastCycleCount, f32 frameTimeMS)
+{
+    uint64 endCycleCount = __rdtsc();
     uint64 cyclesElapsed = endCycleCount - *lastCycleCount;
 
-    f32 msPerFrame = (1000.0f*(f32)counterElapsed) / (f32)perfCountFrequency.QuadPart;
-    f32 FPS = (f32)perfCountFrequency.QuadPart / (f32)counterElapsed;
-    f32 MCyclesPF = (f32)cyclesElapsed / (1000.0f * 1000.0f);
+    f32 MCyclesPerFrame = (f32)cyclesElapsed / (1000.0f * 1000.0f);
+    f32 profileTimeMS = Win32GetMSDifference(*lastCounter);
+    f32 FPS = 1000.0f / profileTimeMS;
+    f32 blitMS = profileTimeMS - frameTimeMS;
 
     char Buffer[256];
-    sprintf_s(Buffer, "Time:%.02fms,  FPS:%.02f,  Mc/f:%.02f\n", msPerFrame, FPS, MCyclesPF);
+    sprintf_s(Buffer, "Time:%.02fms,  FPS:%.02f,  Mc/f:%.02f, Blit-time:%.02fms\n",
+              profileTimeMS, FPS, MCyclesPerFrame, blitMS);
     OutputDebugStringA(Buffer);
 
-    *lastCounter = endCounter;
+    *lastCounter = Win32GetTime();
     *lastCycleCount = endCycleCount;
 }
 
@@ -410,11 +422,16 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
         if(windowHandle)
         {
             // NOTE: Profiling initialization
-            LARGE_INTEGER perfCountFrequency;
-            QueryPerformanceFrequency(&perfCountFrequency);
-            LARGE_INTEGER lastCounter;
-            QueryPerformanceCounter(&lastCounter);
+            QueryPerformanceFrequency(&globalPerfCountFreq);
+            uint64 lastCounter = Win32GetTime();
             uint64 lastCycleCount = __rdtsc();
+
+            // TODO: Maybe this can be queried
+            int monitorRefreshRate = 60;
+            f32 targetMSPerFrame = 1000.0f / (f32)monitorRefreshRate;
+            UINT desiredSchedulerMS = 1;
+            bool sleepIsGranular = (timeBeginPeriod(desiredSchedulerMS) == TIMERR_NOERROR);
+            uint64 beginningFrameTime = Win32GetTime();
 
             // NOTE: Input initialization
             Win32LoadXInput();
@@ -440,6 +457,8 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
             {
                 while(globalRunning)
                 {
+                    beginningFrameTime = Win32GetTime();
+
                     MSG message;
                     while(PeekMessage(&message, 0, 0, 0, PM_REMOVE))
                     {
@@ -464,7 +483,39 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
                     GameUpdateAndRender(&gameMemory, &input);
                     Win32PaintWindow(deviceContext, &win32BackBuffer);
 
-//                    Win32ProfileCode(&lastCounter, perfCountFrequency, &lastCycleCount);
+                    // NOTE: After we blit, we sleep and spinlock for
+                    // the remaining time of the frame. Since we
+                    // cannot blit in v-sync we can at least ensure
+                    // that we have roughly the same frame rate so
+                    // that we can tune the game. Later gpu support
+                    // will be added
+                    f32 frameTimeMS = Win32GetMSDifference(beginningFrameTime);
+                    if(frameTimeMS < targetMSPerFrame)
+                    {
+
+                        if(sleepIsGranular)
+                        {
+                            DWORD sleepMS = (DWORD)(targetMSPerFrame - frameTimeMS);
+                            if(sleepMS > 0)
+                            {
+                                Sleep(sleepMS);
+                            }
+                        }
+
+                        frameTimeMS = Win32GetMSDifference(beginningFrameTime);
+
+                        while(frameTimeMS < targetMSPerFrame)
+                        {
+                            // NOTE: We spinlock the remaining time
+                            frameTimeMS = Win32GetMSDifference(beginningFrameTime);
+                        }
+                        char Buffer[256];
+                        sprintf_s(Buffer, "Time:%.02fms\n", frameTimeMS);
+                        OutputDebugStringA(Buffer);
+
+                    }
+
+//                    Win32ProfileCode(&lastCounter, &lastCycleCount, frameTimeMS);
                 }
             }
             else

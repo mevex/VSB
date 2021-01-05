@@ -20,7 +20,7 @@ I will continue to update this list with present and planned features.
  - [x] Keyboard and Xbox gamepad input
  - [x] Basic code profiling tools
  - [x] Basic file I/O
- - [ ] Fixed frame rate
+ - [x] Fixed frame rate
  - [ ] Bitmap loading
  
 # Experiments

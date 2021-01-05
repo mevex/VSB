@@ -1,7 +1,7 @@
 @echo off
 
-set compilerFlags=-MT -Oi -Od -Zi -nologo -FC -WX -W4 -wd4100 -wd4189 -wd4201
-set libraries=user32.lib gdi32.lib
+set compilerFlags=-MT -Oi -Od -Zi -nologo -FC -WX -W4 -wd4100 -wd4189 -wd4201 -wd4505
+set libraries=user32.lib gdi32.lib Winmm.lib
 
 pushd build
 
