@@ -10,10 +10,15 @@ struct debug_file
     uint32 size;
     void *memory;
 };
-void DebugFreeFile(debug_file *file);
-debug_file DebugReadFile(char *fileName);
-bool DebugWriteFile(char *filename, uint32 fileSize, void *memory);
 
+#define DEBUG_FREE_FILE(name) void name(debug_file *file)
+typedef DEBUG_FREE_FILE(debug_free_file);
+
+#define DEBUG_READ_FILE(name) debug_file name(char *filename)
+typedef DEBUG_READ_FILE(debug_read_file);
+
+#define DEBUG_WRITE_FILE(name) bool name(char *filename, uint32 fileSize, void *memory)
+typedef DEBUG_WRITE_FILE(debug_write_file);
 
 // NOTE: Services that the game provides to the platform layer
 //
@@ -82,6 +87,10 @@ struct game_memory
 
     uint64 memorySize;
     void* memory;
+
+    debug_free_file *DebugFreeFile;
+    debug_read_file *DebugReadFile;
+    debug_write_file *DebugWriteFile;
 };
 
 struct game_state
@@ -93,4 +102,8 @@ struct game_state
     int y0, y1, y2, y3;
 };
 
-void GameUpdateAndRender(game_memory *gameMemory, game_input *input);
+#define GAME_UPDATE_AND_RENDER(name) void name(game_memory *gameMemory, game_input *input)
+typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
+GAME_UPDATE_AND_RENDER(GameUpdateAndRenderStub)
+{
+}

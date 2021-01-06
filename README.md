@@ -21,6 +21,7 @@ I will continue to update this list with present and planned features.
  - [x] Basic code profiling tools
  - [x] Basic file I/O
  - [x] Fixed frame rate
+ - [x] Live code editing
  - [ ] Bitmap loading
  
 # Experiments

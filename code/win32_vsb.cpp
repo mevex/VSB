@@ -5,74 +5,12 @@
 #include <windows.h>
 #include <xinput.h>
 
-// TODO: Maybe move this in a header file?
-struct win32_render_buffer
-{
-    BITMAPINFO info;
-    void *memory;
-    int width;
-    int height;
-    //render_buffer buffer;
-};
+#include "win32_vsb.h"
 
 global_variable LARGE_INTEGER globalPerfCountFreq;
 global_variable bool globalRunning;
 
-
-// NOTE: This procedure is not required at all for the scope of this
-//project but it's a great example of how to mantain backwards
-//compatibility in a smart and clever way and also allow the player to
-//play the game without a controller.
-//CREDITS:(https://guide.handmadehero.org/code/day006/)
-
-// NOTE: XInputGetState
-#define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
-typedef X_INPUT_GET_STATE(x_input_get_state);
-X_INPUT_GET_STATE(XInputGetStateStub)
-{
-    return(ERROR_DEVICE_NOT_CONNECTED);
-}
-global_variable x_input_get_state *XInputGetState_ = XInputGetStateStub;
-#define XInputGetState XInputGetState_
-
-// NOTE: XInputSetState
-#define X_INPUT_SET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration)
-typedef X_INPUT_SET_STATE(x_input_set_state);
-X_INPUT_SET_STATE(XInputSetStateStub)
-{
-    return(ERROR_DEVICE_NOT_CONNECTED);
-}
-global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
-#define XInputSetState XInputSetState_
-
-#define VSB_GAMEPAD_THUMB_DEADZONE 3000
-#define VSB_GAMEPAD_TRIGGER_THRESHOLD 30
-
-internal void Win32LoadXInput()
-{
-    HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
-    if(!XInputLibrary)
-    {
-        XInputLibrary = LoadLibraryA("xinput1_3.dll");
-        if(!XInputLibrary)
-        {
-            XInputLibrary = LoadLibraryA("xinput9_1_0.dll");
-        }
-    }
-
-    if(XInputLibrary)
-    {
-        XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
-        XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
-    }
-    else
-    {
-        XInputGetState = XInputGetStateStub;
-        XInputSetState = XInputSetStateStub;
-    }
-}
-
-void DebugFreeFile(debug_file *file)
+DEBUG_FREE_FILE(DebugFreeFile)
 {
     if(file->memory)
     {
@@ -82,7 +20,7 @@ void DebugFreeFile(debug_file *file)
     }
 }
 
-debug_file DebugReadFile(char *filename)
+DEBUG_READ_FILE(DebugReadFile)
 {
     debug_file result = {};
         
@@ -116,7 +54,7 @@ debug_file DebugReadFile(char *filename)
     return result;
 }
 
-bool DebugWriteFile(char *filename, uint32 fileSize, void *memory)
+DEBUG_WRITE_FILE(DebugWriteFile)
 {
     bool result = false;
 
@@ -134,6 +72,77 @@ bool DebugWriteFile(char *filename, uint32 fileSize, void *memory)
     }
 
     return result;
+}
+
+internal FILETIME Win32GetLastWriteTime(char *filename)
+{
+    FILETIME result = {};
+
+    HANDLE fileHandle = CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    if(fileHandle)
+    {
+        GetFileTime(fileHandle, 0, 0, &result);
+        CloseHandle(fileHandle);
+    }
+
+    return result;
+}
+
+internal win32_game_code Win32LoadGameCode(char *pathDll, char *pathTempDll)
+{
+    // TODO: The shipping version of this does not need to copy nor check
+    // the last write time
+    win32_game_code result = {};
+
+    CopyFile(pathDll, pathTempDll, FALSE);
+
+    result.lastWriteDll = Win32GetLastWriteTime(pathDll);
+    result.gameCodeDll = LoadLibraryA(pathTempDll);
+    if(result.gameCodeDll)
+    {
+        result.UpdateAndRender = (game_update_and_render *)GetProcAddress(result.gameCodeDll,
+                                                                          "GameUpdateAndRender");
+    }
+    else
+    {
+        result.UpdateAndRender = GameUpdateAndRenderStub;
+    }
+
+    return result;
+}
+
+internal void Win32UnloadGameCode(win32_game_code *game)
+{
+    if(game->gameCodeDll)
+    {
+        FreeLibrary(game->gameCodeDll);
+        game->gameCodeDll = 0;
+    }
+    game->UpdateAndRender = GameUpdateAndRenderStub;
+}
+
+internal void Win32LoadXInput()
+{
+    HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
+    if(!XInputLibrary)
+    {
+        XInputLibrary = LoadLibraryA("xinput1_3.dll");
+        if(!XInputLibrary)
+        {
+            XInputLibrary = LoadLibraryA("xinput9_1_0.dll");
+        }
+    }
+
+    if(XInputLibrary)
+    {
+        XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
+        XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
+    }
+    else
+    {
+        XInputGetState = XInputGetStateStub;
+        XInputSetState = XInputSetStateStub;
+    }
 }
 
 internal void Win32CrateRenderBuffer(win32_render_buffer *win32Buffer, int width, int height)
@@ -441,11 +450,19 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
 
             // NOTE: Game initialization
             globalRunning = true;
+            // TODO: The shipping version does not need hardcoded
+            // paths and the temp file because will not be any reloading
+            char *pathDll = "../build/vsb.dll";
+            char *pathTempDll = "../build/temp_vsb.dll";
+            win32_game_code game = Win32LoadGameCode(pathDll, pathTempDll);
 
             HDC deviceContext = GetDC(windowHandle);
             win32_render_buffer win32BackBuffer;
             Win32CrateRenderBuffer(&win32BackBuffer, 1280, 720);
             game_memory gameMemory = {};
+            gameMemory.DebugFreeFile = DebugFreeFile;
+            gameMemory.DebugReadFile = DebugReadFile;
+            gameMemory.DebugWriteFile = DebugWriteFile;
             gameMemory.backBuffer.memory = win32BackBuffer.memory;
             gameMemory.backBuffer.width = win32BackBuffer.width;
             gameMemory.backBuffer.height = win32BackBuffer.height;
@@ -458,6 +475,18 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
                 while(globalRunning)
                 {
                     beginningFrameTime = Win32GetTime();
+
+                    // NOTE: This checks if the dll is rebuild and
+                    // reloads the new code allowing to change mostly
+                    // all of the game code and istantly see the
+                    // changes without the need to close and reopen
+                    // the application
+                    FILETIME newWriteDll = Win32GetLastWriteTime(pathDll);
+                    if(CompareFileTime(&newWriteDll, &game.lastWriteDll) != 0)
+                    {
+                        Win32UnloadGameCode(&game);
+                        game = Win32LoadGameCode(pathDll, pathTempDll);
+                    }
 
                     MSG message;
                     while(PeekMessage(&message, 0, 0, 0, PM_REMOVE))
@@ -480,7 +509,7 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
                     }
 
                     Win32PoolGamepadState(&input.gamepad);
-                    GameUpdateAndRender(&gameMemory, &input);
+                    game.UpdateAndRender(&gameMemory, &input);
                     Win32PaintWindow(deviceContext, &win32BackBuffer);
 
                     // NOTE: After we blit, we sleep and spinlock for
@@ -509,10 +538,6 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
                             // NOTE: We spinlock the remaining time
                             frameTimeMS = Win32GetMSDifference(beginningFrameTime);
                         }
-                        char Buffer[256];
-                        sprintf_s(Buffer, "Time:%.02fms\n", frameTimeMS);
-                        OutputDebugStringA(Buffer);
-
                     }
 
 //                    Win32ProfileCode(&lastCounter, &lastCycleCount, frameTimeMS);

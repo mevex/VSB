@@ -44,7 +44,7 @@ void DrawPixel(int x, int y, uint32 color, render_buffer buffer)
     *pixel = color;
 }
 
-void GameUpdateAndRender(game_memory *gameMemory, game_input *input)
+extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
     // TODO: we use the allocated memory like this, FOR NOW!
     game_state *gameState = (game_state *)gameMemory->memory;
@@ -54,11 +54,11 @@ void GameUpdateAndRender(game_memory *gameMemory, game_input *input)
         gameMemory->initialized = true;
 
         char *filename = __FILE__;
-        debug_file file = DebugReadFile(filename);
+        debug_file file = gameMemory->DebugReadFile(filename);
         if(file.memory)
         {
-            DebugWriteFile("test.out", file.size, file.memory);
-            DebugFreeFile(&file);
+            gameMemory->DebugWriteFile("test.out", file.size, file.memory);
+            gameMemory->DebugFreeFile(&file);
         }
     }
 
