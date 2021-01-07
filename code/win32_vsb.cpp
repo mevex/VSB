@@ -10,6 +10,7 @@
 global_variable LARGE_INTEGER globalPerfCountFreq;
 global_variable bool globalRunning;
 
+#if VSB_DEBUG
 DEBUG_FREE_FILE(DebugFreeFile)
 {
     if(file->memory)
@@ -30,7 +31,8 @@ DEBUG_READ_FILE(DebugReadFile)
         LARGE_INTEGER fileSize64;
         if(GetFileSizeEx(fileHandle, &fileSize64))
         {
-            uint32 fileSize = (int)fileSize64.QuadPart;
+            Assert(fileSize64.QuadPart <= 0xFFFFFFFF);
+            uint32 fileSize = (uint32)fileSize64.QuadPart;
             result.memory = VirtualAlloc(0, fileSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
             if(result.memory)
             {
@@ -56,6 +58,7 @@ DEBUG_READ_FILE(DebugReadFile)
 
 DEBUG_WRITE_FILE(DebugWriteFile)
 {
+    Assert(fileSize <= 0xFFFFFFFF);
     bool result = false;
 
     HANDLE fileHandle = CreateFile(filename, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
@@ -73,6 +76,7 @@ DEBUG_WRITE_FILE(DebugWriteFile)
 
     return result;
 }
+#endif
 
 internal FILETIME Win32GetLastWriteTime(char *filename)
 {
@@ -521,7 +525,6 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
                     f32 frameTimeMS = Win32GetMSDifference(beginningFrameTime);
                     if(frameTimeMS < targetMSPerFrame)
                     {
-
                         if(sleepIsGranular)
                         {
                             DWORD sleepMS = (DWORD)(targetMSPerFrame - frameTimeMS);
@@ -539,8 +542,9 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
                             frameTimeMS = Win32GetMSDifference(beginningFrameTime);
                         }
                     }
-
-//                    Win32ProfileCode(&lastCounter, &lastCycleCount, frameTimeMS);
+#if 0
+                    Win32ProfileCode(&lastCounter, &lastCycleCount, frameTimeMS);
+#endif
                 }
             }
             else

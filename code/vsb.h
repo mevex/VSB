@@ -11,6 +11,8 @@ struct debug_file
     void *memory;
 };
 
+#if VSB_DEBUG
+
 #define DEBUG_FREE_FILE(name) void name(debug_file *file)
 typedef DEBUG_FREE_FILE(debug_free_file);
 
@@ -19,6 +21,8 @@ typedef DEBUG_READ_FILE(debug_read_file);
 
 #define DEBUG_WRITE_FILE(name) bool name(char *filename, uint32 fileSize, void *memory)
 typedef DEBUG_WRITE_FILE(debug_write_file);
+
+#endif
 
 // NOTE: Services that the game provides to the platform layer
 //
