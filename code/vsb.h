@@ -108,6 +108,3 @@ struct game_state
 
 #define GAME_UPDATE_AND_RENDER(name) void name(game_memory *gameMemory, game_input *input)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
-GAME_UPDATE_AND_RENDER(GameUpdateAndRenderStub)
-{
-}

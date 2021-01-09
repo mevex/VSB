@@ -82,13 +82,11 @@ internal FILETIME Win32GetLastWriteTime(char *filename)
 {
     FILETIME result = {};
 
-    HANDLE fileHandle = CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
-    if(fileHandle)
+    WIN32_FILE_ATTRIBUTE_DATA fileAttributes;
+    if(GetFileAttributesEx(filename, GetFileExInfoStandard, &fileAttributes))
     {
-        GetFileTime(fileHandle, 0, 0, &result);
-        CloseHandle(fileHandle);
+        result = fileAttributes.ftLastWriteTime;
     }
-
     return result;
 }
 
@@ -109,7 +107,7 @@ internal win32_game_code Win32LoadGameCode(char *pathDll, char *pathTempDll)
     }
     else
     {
-        result.UpdateAndRender = GameUpdateAndRenderStub;
+        result.UpdateAndRender = 0;
     }
 
     return result;
@@ -122,7 +120,7 @@ internal void Win32UnloadGameCode(win32_game_code *game)
         FreeLibrary(game->gameCodeDll);
         game->gameCodeDll = 0;
     }
-    game->UpdateAndRender = GameUpdateAndRenderStub;
+    game->UpdateAndRender = 0;
 }
 
 internal void Win32LoadXInput()
@@ -439,13 +437,6 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
             uint64 lastCounter = Win32GetTime();
             uint64 lastCycleCount = __rdtsc();
 
-            // TODO: Maybe this can be queried
-            int monitorRefreshRate = 60;
-            f32 targetMSPerFrame = 1000.0f / (f32)monitorRefreshRate;
-            UINT desiredSchedulerMS = 1;
-            bool sleepIsGranular = (timeBeginPeriod(desiredSchedulerMS) == TIMERR_NOERROR);
-            uint64 beginningFrameTime = Win32GetTime();
-
             // NOTE: Input initialization
             Win32LoadXInput();
             game_input input = {};
@@ -471,8 +462,21 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
             gameMemory.backBuffer.width = win32BackBuffer.width;
             gameMemory.backBuffer.height = win32BackBuffer.height;
             gameMemory.memorySize = MB(64);
+            // TODO: Maybe we want to use MEM_LARGE_PAGES for this allocation?
             gameMemory.memory = VirtualAlloc(0, gameMemory.memorySize,
                                              MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+
+            // NOTE: Fixed framerate initialization
+            int monitorRefreshRate = 60;
+            int vRefresh = GetDeviceCaps(deviceContext, VREFRESH);
+            if(vRefresh > 1)
+            {
+                monitorRefreshRate = vRefresh;
+            }
+            f32 targetMSPerFrame = 1000.0f / (f32)monitorRefreshRate;
+            UINT desiredSchedulerMS = 1;
+            bool sleepIsGranular = (timeBeginPeriod(desiredSchedulerMS) == TIMERR_NOERROR);
+            uint64 beginningFrameTime = Win32GetTime();
 
             if(gameMemory.memory)
             {
@@ -513,15 +517,17 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
                     }
 
                     Win32PoolGamepadState(&input.gamepad);
-                    game.UpdateAndRender(&gameMemory, &input);
+                    if(game.UpdateAndRender)
+                    {
+                        game.UpdateAndRender(&gameMemory, &input);
+                    }
                     Win32PaintWindow(deviceContext, &win32BackBuffer);
 
                     // NOTE: After we blit, we sleep and spinlock for
                     // the remaining time of the frame. Since we
                     // cannot blit in v-sync we can at least ensure
-                    // that we have roughly the same frame rate so
-                    // that we can tune the game. Later gpu support
-                    // will be added
+                    // that we have roughly the same frame rate. Later
+                    // gpu support will be added
                     f32 frameTimeMS = Win32GetMSDifference(beginningFrameTime);
                     if(frameTimeMS < targetMSPerFrame)
                     {
