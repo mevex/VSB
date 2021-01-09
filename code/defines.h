@@ -34,3 +34,11 @@ typedef double f64;
 #define Clamp(value, min, max) ((value)>(max)) ? (max) : (((value)<(min)) ? (min) : (value))
 
 #define ABS(value) (((value)>=0) ? (value) : -(value))
+
+// NOTE: Utility functions
+// TODO: Intrinsics?
+inline int32 RoundFloatToInt32(f32 value)
+{
+    int32 result = (int32)(value + 0.5f);
+    return result;
+}

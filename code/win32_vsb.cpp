@@ -250,10 +250,10 @@ internal void Win32PoolGamepadState(controller *gamepad)
         gamepad->leftTriggerValue = Win32NormalizeTriggerValue(pad->bLeftTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD);
         gamepad->leftTriggerValue = Win32NormalizeTriggerValue(pad->bRightTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD);
 
-        gamepad->leftStickX = Win32NormalizeStickValue(pad->sThumbLX, VSB_GAMEPAD_TRIGGER_THRESHOLD);
-        gamepad->leftStickY = Win32NormalizeStickValue(pad->sThumbLY, VSB_GAMEPAD_TRIGGER_THRESHOLD);
-        gamepad->rightStickX = Win32NormalizeStickValue(pad->sThumbRX, VSB_GAMEPAD_TRIGGER_THRESHOLD);
-        gamepad->rightStickY = Win32NormalizeStickValue(pad->sThumbRY, VSB_GAMEPAD_TRIGGER_THRESHOLD);
+        gamepad->leftStickX = Win32NormalizeStickValue(pad->sThumbLX, VSB_GAMEPAD_THUMB_DEADZONE);
+        gamepad->leftStickY = Win32NormalizeStickValue(pad->sThumbLY, VSB_GAMEPAD_THUMB_DEADZONE);
+        gamepad->rightStickX = Win32NormalizeStickValue(pad->sThumbRX, VSB_GAMEPAD_THUMB_DEADZONE);
+        gamepad->rightStickY = Win32NormalizeStickValue(pad->sThumbRY, VSB_GAMEPAD_THUMB_DEADZONE);
     }
     else
     {

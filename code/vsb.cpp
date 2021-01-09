@@ -3,38 +3,49 @@
 
 #include "test_interpolation.cpp"
 
-internal void RenderWierdGradient(render_buffer buffer, int redOffset, int greenOffset)
+internal void FillEntireBuffer(render_buffer buffer, uint32 color)
 {
     uint32 *pixel = (uint32 *)buffer.memory;
     for(int y = 0; y < buffer.height; y++)
     {
         for(int x = 0; x < buffer.width; x++)
         {
-            *pixel++ = VSB_RGB(200,200,200);//VSB_RGB(redOffset + x, greenOffset + y, 0);
+            *pixel++ = color;
         }
     }
 }
 
-internal void DrawRectangle(int xPos, int yPos, int width, int height,
+internal void DrawRectangle(f32 floatX, f32 floatY, f32 floatWidth, f32 floatHeight,
                             uint32 color, render_buffer buffer)
 {
-/*    xPos = xPos >= 0 ? xPos : 0;
-    yPos = yPos >= 0 ? yPos : 0;
-    width = ((xPos + width) <= buffer.width) ? width : buffer.width - xPos;
-    height = ((yPos + height) < buffer.height) ? height : buffer.height - yPos - 1; */
+    int iX = RoundFloatToInt32(floatX);
+    int iY = RoundFloatToInt32(floatY);
+    int iWidth = RoundFloatToInt32(floatWidth);
+    int iHeight = RoundFloatToInt32(floatHeight);
 
-    uint32 *pixel = (uint32 *)buffer.memory;
+    iWidth = ((iX + iWidth) > buffer.width) ? (buffer.width - iX) : iWidth;
+    iHeight = ((iY + iHeight) > buffer.height) ? (buffer.height - iY) : iHeight;
 
-    for(int y = yPos; y < (height + yPos); y++)
+    if(iX < 0)
     {
-        for(int x = xPos; x < (width + xPos); x++)
+        iWidth += iX;
+        iX = 0;
+    }
+    if(iY < 0)
+    {
+        iHeight += iY;
+        iY = 0;
+    }
+
+    uint32 *pixel = (uint32 *)buffer.memory + iY*buffer.width + iX;
+
+    for(int y = 0; y < iHeight; y++)
+    {
+        for(int x = 0; x < iWidth; x++)
         {
-            if(x > 0 && x < 1280 &&
-               y > 0 && y < 720)
-            {
-                pixel[y*buffer.width + x] = color;
-            }
+            *pixel++ = color;
         }
+        pixel += buffer.width - iWidth;
     }
 }
 
@@ -62,24 +73,23 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         }
     }
 
-    gameState->redOffset += 0.5f;
-    gameState->greenOffset += 0.5f;
-    RenderWierdGradient(gameMemory->backBuffer, (int)gameState->redOffset, (int)gameState->greenOffset);
+    uint32 backgroundColor = VSB_RGB(200, 200, 200);
+    FillEntireBuffer(gameMemory->backBuffer, backgroundColor);
 
-    gameState->x1 += (int)(2.0f * input->gamepad.leftStickX);
-    gameState->y1 -= (int)(2.0f * input->gamepad.leftStickY);
-    gameState->x2 += (int)(2.0f * input->gamepad.rightStickX);
-    gameState->y2 -= (int)(2.0f * input->gamepad.rightStickY);
+    gameState->x1 += 10.0f * input->gamepad.leftStickX;
+    gameState->y1 -= 10.0f * input->gamepad.leftStickY;
+    gameState->x2 += 10.0f * input->gamepad.rightStickX;
+    gameState->y2 -= 10.0f * input->gamepad.rightStickY;
 
-    gameState->x0 += (int)(2.0f * input->keyboard.leftStickX);
-    gameState->y0 -= (int)(2.0f * input->keyboard.leftStickY);
-    gameState->x3 += (int)(2.0f * input->keyboard.rightStickX);
-    gameState->y3 -= (int)(2.0f * input->keyboard.rightStickY);
+    gameState->x0 += 10.0f * input->keyboard.leftStickX;
+    gameState->y0 -= 10.0f * input->keyboard.leftStickY;
+    gameState->x3 += 10.0f * input->keyboard.rightStickX;
+    gameState->y3 -= 10.0f * input->keyboard.rightStickY;
 
-    point p0 = {10 + gameState->x0, 10 + gameState->y0};
-    point p1 = {400 + gameState->x1, 400 + gameState->y1};
-    point p2 = {600 + gameState->x2, 600 + gameState->y2};
-    point p3 = {1200 + gameState->x3, 700 + gameState->y3};
+    point p0 = {10.0f + gameState->x0, 10.0f + gameState->y0};
+    point p1 = {400.0f + gameState->x1, 400.0f + gameState->y1};
+    point p2 = {600.0f + gameState->x2, 600.0f + gameState->y2};
+    point p3 = {1200.0f + gameState->x3, 700.0f + gameState->y3};
 
     DrawRectangle(p0.x, p0.y, 10, 10, VSB_RGB(150,0,0), gameMemory->backBuffer);
     DrawRectangle(p1.x, p1.y, 10, 10, VSB_RGB(150,0,0), gameMemory->backBuffer);
