@@ -437,12 +437,6 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
             uint64 lastCounter = Win32GetTime();
             uint64 lastCycleCount = __rdtsc();
 
-            // NOTE: Input initialization
-            Win32LoadXInput();
-            game_input input = {};
-            input.keyboard.connected = true;
-            input.analog = false;
-
             // NOTE: Game initialization
             globalRunning = true;
             // TODO: The shipping version does not need hardcoded
@@ -478,12 +472,17 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
             bool sleepIsGranular = (timeBeginPeriod(desiredSchedulerMS) == TIMERR_NOERROR);
             uint64 beginningFrameTime = Win32GetTime();
 
+            // NOTE: Input initialization
+            Win32LoadXInput();
+            game_input input = {};
+            input.keyboard.connected = true;
+            input.analog = false;
+            input.dTime = 1 / (f32)monitorRefreshRate;
+
             if(gameMemory.memory)
             {
                 while(globalRunning)
                 {
-                    beginningFrameTime = Win32GetTime();
-
                     // NOTE: This checks if the dll is rebuild and
                     // reloads the new code allowing to change mostly
                     // all of the game code and istantly see the
@@ -529,11 +528,11 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
                     // that we have roughly the same frame rate. Later
                     // gpu support will be added
                     f32 frameTimeMS = Win32GetMSDifference(beginningFrameTime);
+                    DWORD sleepMS = (DWORD)(targetMSPerFrame - frameTimeMS);
                     if(frameTimeMS < targetMSPerFrame)
                     {
                         if(sleepIsGranular)
                         {
-                            DWORD sleepMS = (DWORD)(targetMSPerFrame - frameTimeMS);
                             if(sleepMS > 0)
                             {
                                 Sleep(sleepMS);
@@ -548,6 +547,10 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
                             frameTimeMS = Win32GetMSDifference(beginningFrameTime);
                         }
                     }
+
+                    // NOTE: beginningFrameTime gets updated here
+                    // so we dont miss the profile time
+                    beginningFrameTime = Win32GetTime();
 #if 0
                     Win32ProfileCode(&lastCounter, &lastCycleCount, frameTimeMS);
 #endif

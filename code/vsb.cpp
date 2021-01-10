@@ -91,9 +91,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     point p2 = {600.0f + gameState->x2, 600.0f + gameState->y2};
     point p3 = {1200.0f + gameState->x3, 700.0f + gameState->y3};
 
-    DrawRectangle(p0.x, p0.y, 10, 10, VSB_RGB(150,0,0), gameMemory->backBuffer);
-    DrawRectangle(p1.x, p1.y, 10, 10, VSB_RGB(150,0,0), gameMemory->backBuffer);
-    DrawRectangle(p2.x, p2.y, 10, 10, VSB_RGB(150,0,0), gameMemory->backBuffer);
-    DrawRectangle(p3.x, p3.y, 10, 10, VSB_RGB(150,0,0), gameMemory->backBuffer);
+    DrawLine(p0, p1, VSB_RGB(100, 0, 0), gameMemory->backBuffer);
+    DrawLine(p2, p3, VSB_RGB(100, 0, 0), gameMemory->backBuffer);
     InterporateFourPoints(p0, p1, p2, p3, VSB_RGB(0,0,255), gameMemory->backBuffer);
+    DrawRectangle(p0.x-5, p0.y-5, 10, 10, VSB_RGB(150,0,0), gameMemory->backBuffer);
+    DrawRectangle(p1.x-5, p1.y-5, 10, 10, VSB_RGB(150,0,0), gameMemory->backBuffer);
+    DrawRectangle(p2.x-5, p2.y-5, 10, 10, VSB_RGB(150,0,0), gameMemory->backBuffer);
+    DrawRectangle(p3.x-5, p3.y-5, 10, 10, VSB_RGB(150,0,0), gameMemory->backBuffer);
 }

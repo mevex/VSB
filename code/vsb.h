@@ -73,6 +73,7 @@ struct game_input
     controller gamepad;
     controller keyboard;
 
+    f32 dTime;
     bool analog;
 };
 
