@@ -80,8 +80,8 @@ struct game_input
 struct render_buffer
 {
     void *memory;
-    int width;
-    int height;
+    int32 width;
+    int32 height;
 };
 
 struct game_memory
@@ -98,12 +98,49 @@ struct game_memory
     debug_write_file *DebugWriteFile;
 };
 
+#pragma pack(push, 1)
+struct bmp_header
+{
+    int16 id;
+    int32 size;
+    int32 reserved;
+    int32 pixelOffsetInBytes;
+
+    int32 dibHeaderSize;
+    int32 width;
+    int32 height;
+    int16 planes;
+    int16 bitsPerPixel;
+    int32 compression;
+    int32 sizeOfBitmapData;
+    int32 horizontalRes;
+    int32 verticalRes;
+    int32 paletteColors;
+    int32 importantColors;
+
+    int32 redMask;
+    int32 greenMask;
+    int32 blueMask;
+    int32 alphaMask;
+};
+#pragma pack(pop)
+
+struct bmp_image
+{
+    int32 width;
+    int32 height;
+    void* pixels;
+
+    int32 xAlign;
+    int32 yAlign;
+};
+
 struct game_state
 {
-    // TODO: maybe add frame time here?
-    // TODO: these are just dummy values
-    f32 x0, x1, x2, x3;
-    f32 y0, y1, y2, y3;
+    bmp_image backgroundBMP;
+    bmp_image playerFront[3];
+
+    f32 playerX, playerY;
 };
 
 #define GAME_UPDATE_AND_RENDER(name) void name(game_memory *gameMemory, game_input *input)

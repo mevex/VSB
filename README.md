@@ -22,7 +22,11 @@ I will continue to update this list with present and planned features.
  - [x] Basic file I/O
  - [x] Fixed frame rate
  - [x] Live code editing
- - [ ] Bitmap loading
+ - [x] Bitmap loading
+ - [ ] Vectors
+ - [ ] Pixel indipendent coordinates
+ - [ ] Physically based movement
+ - [ ] Mindowski based collision
  
 # Experiments
 Here I will list all the experiment that I will be doing during the development and I will show the result.
