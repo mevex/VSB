@@ -1,7 +1,5 @@
-#include "defines.h"
-#include "utils.h"
-
 #include "vsb.h"
+
 #include "test_interpolation.cpp"
 
 bmp_image LoadBMP(debug_read_file *ReadFile, char *filename)
@@ -40,33 +38,33 @@ bmp_image LoadBMP(debug_read_file *ReadFile, char *filename)
     return result;
 }
 
-void DrawBitmap(f32 fX, f32 fY, int xAlign, int yAlign, bmp_image bmp, render_buffer buffer)
+void DrawBitmap(v2 p, v2 align, bmp_image bmp, render_buffer buffer)
 {
-    int iX = RoundFloatToInt32(fX) - xAlign;
-    int iY = RoundFloatToInt32(fY) - yAlign;
+    int left = RoundFloatToInt32(p.x - align.x);
+    int top = RoundFloatToInt32(p.y - align.y);
     int width = bmp.width;
     int height = bmp.height;
 
     int sourceOffsetX = 0;
     int sourceOffsetY = 0;
 
-    if(iX < 0)
+    if(left < 0)
     {
-        width += iX;
-        sourceOffsetX -= iX;
-        iX = 0;
+        width += left;
+        sourceOffsetX -= left;
+        left = 0;
     }
-    if(iY < 0)
+    if(top < 0)
     {
-        height += iY;
-        sourceOffsetY -= iY;
-        iY = 0;
+        height += top;
+        sourceOffsetY -= top;
+        top = 0;
     }
 
-    width = ((iX + width) > buffer.width) ? (buffer.width - iX) : width;
-    height = ((iY + height) > buffer.height) ? (buffer.height - iY) : height;
+    width = ((left + width) > buffer.width) ? (buffer.width - left) : width;
+    height = ((top + height) > buffer.height) ? (buffer.height - top) : height;
 
-    uint32 *destRow = (uint32 *)buffer.memory + buffer.width*iY + iX;
+    uint32 *destRow = (uint32 *)buffer.memory + buffer.width*top + left;
     uint32 *sourceRow = (uint32 *)bmp.pixels + (bmp.width*(bmp.height - 1));
     sourceRow += -(bmp.width*sourceOffsetY) + sourceOffsetX;
     f32 sr, sg, sb, a;
@@ -106,9 +104,9 @@ void DrawBitmap(f32 fX, f32 fY, int xAlign, int yAlign, bmp_image bmp, render_bu
     }
 }
 
-void DrawBitmap(f32 fX, f32 fY, bmp_image bmp, render_buffer buffer)
+void DrawBitmap(v2 p, bmp_image bmp, render_buffer buffer)
 {
-    DrawBitmap(fX, fY, 0, 0, bmp, buffer);
+    DrawBitmap(p, v2(0, 0), bmp, buffer);
 }
 
 void FillEntireBuffer(render_buffer buffer, uint32 color)
@@ -123,34 +121,33 @@ void FillEntireBuffer(render_buffer buffer, uint32 color)
     }
 }
 
-void DrawRectangle(f32 floatX, f32 floatY, f32 floatWidth, f32 floatHeight,
-                            uint32 color, render_buffer buffer)
+void DrawRectangle(v2 p, v2 size, uint32 color, render_buffer buffer)
 {
-    int iX = RoundFloatToInt32(floatX);
-    int iY = RoundFloatToInt32(floatY);
-    int iWidth = RoundFloatToInt32(floatWidth);
-    int iHeight = RoundFloatToInt32(floatHeight);
+    int left = RoundFloatToInt32(p.x);
+    int top = RoundFloatToInt32(p.y);
+    int width = RoundFloatToInt32(size.x);
+    int height = RoundFloatToInt32(size.y);
 
-    if(iX < 0)
+    if(left < 0)
     {
-        iWidth += iX;
-        iX = 0;
+        width += left;
+        left = 0;
     }
-    if(iY < 0)
+    if(top < 0)
     {
-        iHeight += iY;
-        iY = 0;
+        height += top;
+        top = 0;
     }
 
-    iWidth = ((iX + iWidth) > buffer.width) ? (buffer.width - iX) : iWidth;
-    iHeight = ((iY + iHeight) > buffer.height) ? (buffer.height - iY) : iHeight;
+    width = ((left + width) > buffer.width) ? (buffer.width - left) : width;
+    height = ((top + height) > buffer.height) ? (buffer.height - top) : height;
 
-    uint32 *row = (uint32 *)buffer.memory + iY*buffer.width + iX;
+    uint32 *row = (uint32 *)buffer.memory + top*buffer.width + left;
 
-    for(int y = 0; y < iHeight; y++)
+    for(int y = 0; y < height; y++)
     {
         uint32 *pixel = row;
-        for(int x = 0; x < iWidth; x++)
+        for(int x = 0; x < width; x++)
         {
             *pixel++ = color;
         }
@@ -158,8 +155,10 @@ void DrawRectangle(f32 floatX, f32 floatY, f32 floatWidth, f32 floatHeight,
     }
 }
 
-void DrawPixel(int x, int y, uint32 color, render_buffer buffer)
+void DrawPixel(v2 p, uint32 color, render_buffer buffer)
 {
+    int32 x = RoundFloatToInt32(p.x);
+    int32 y = RoundFloatToInt32(p.y);
     uint32 *pixel = (uint32 *)buffer.memory + buffer.width*y + x;
     *pixel = color;
 }
@@ -176,30 +175,29 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         gameState->playerFront[1] = LoadBMP(gameMemory->DebugReadFile, "test_player_front_2.bmp");
         gameState->playerFront[2] = LoadBMP(gameMemory->DebugReadFile, "test_player_front_3.bmp");
 
-        gameState->playerX = 100.0f;
-        gameState->playerY = 100.0f;
+        gameState->playerPos = {100.0f, 100.0f};
 
         gameMemory->initialized = true;
     }
 
-    gameState->playerX += 4.0f*input->gamepad.leftStickX;
-    gameState->playerY -= 4.0f*input->gamepad.leftStickY;
+    // TODO: make coordinates screen independent
+    gameState->playerPos += 4.0f*input->gamepad.leftStick;
+    gameState->playerPos += 4.0f*input->keyboard.leftStick;
 
-    gameState->playerX += 4.0f*input->keyboard.leftStickX;
-    gameState->playerY -= 4.0f*input->keyboard.leftStickY;
-
+    // NOTE: Here i clear the buffer to make sure that there are no
+    // problems with the rendering
     uint32 backgroundColor = VSB_RGB(255, 0, 255);
     FillEntireBuffer(gameMemory->backBuffer, backgroundColor);
-    DrawBitmap(10, 10, gameState->backgroundBMP, gameMemory->backBuffer);
+    DrawBitmap(v2(10.0f, 10.0f), gameState->backgroundBMP, gameMemory->backBuffer);
 
-    DrawRectangle(gameState->playerX - 5.0f, gameState->playerY - 5.0f, 10, 10,
+    DrawRectangle(gameState->playerPos - v2(5.0f, 5.0f), v2(10.0f, 10.0f),
                   VSB_RGB(150,0,0), gameMemory->backBuffer);
 
-    DrawBitmap(gameState->playerX, gameState->playerY, 72, 182,
+    DrawBitmap(gameState->playerPos, v2(72.0f, 182.0f),
                gameState->playerFront[2], gameMemory->backBuffer);
-    DrawBitmap(gameState->playerX, gameState->playerY, 72, 182,
+    DrawBitmap(gameState->playerPos, v2(72.0f, 182.0f),
                gameState->playerFront[1], gameMemory->backBuffer);
-    DrawBitmap(gameState->playerX, gameState->playerY, 72, 182,
+    DrawBitmap(gameState->playerPos, v2(72.0f, 182.0f),
                gameState->playerFront[0], gameMemory->backBuffer);
 }
 

@@ -27,6 +27,7 @@ I will continue to update this list with present and planned features.
  - [ ] Pixel indipendent coordinates
  - [ ] Physically based movement
  - [ ] Mindowski based collision
+ - [ ] Simple font rendering
  
 # Experiments
 Here I will list all the experiment that I will be doing during the development and I will show the result.

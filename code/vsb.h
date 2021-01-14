@@ -1,5 +1,9 @@
 #pragma once
 
+#include "defines.h"
+#include "utils.h"
+#include "vsb_math.h"
+
 // NOTE: Services that the platform layer provides to the game
 //
 
@@ -60,10 +64,8 @@ struct controller
     f32 rightTriggerValue;
 
     // TODO Vectorize this
-    f32 leftStickX;
-    f32 leftStickY;
-    f32 rightStickX;
-    f32 rightStickY;
+    v2 leftStick;
+    v2 rightStick;
 
     bool connected;
 };
@@ -140,7 +142,7 @@ struct game_state
     bmp_image backgroundBMP;
     bmp_image playerFront[3];
 
-    f32 playerX, playerY;
+    v2 playerPos;
 };
 
 #define GAME_UPDATE_AND_RENDER(name) void name(game_memory *gameMemory, game_input *input)

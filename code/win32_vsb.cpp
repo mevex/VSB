@@ -250,10 +250,10 @@ internal void Win32PoolGamepadState(controller *gamepad)
         gamepad->leftTriggerValue = Win32NormalizeTriggerValue(pad->bLeftTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD);
         gamepad->leftTriggerValue = Win32NormalizeTriggerValue(pad->bRightTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD);
 
-        gamepad->leftStickX = Win32NormalizeStickValue(pad->sThumbLX, VSB_GAMEPAD_THUMB_DEADZONE);
-        gamepad->leftStickY = Win32NormalizeStickValue(pad->sThumbLY, VSB_GAMEPAD_THUMB_DEADZONE);
-        gamepad->rightStickX = Win32NormalizeStickValue(pad->sThumbRX, VSB_GAMEPAD_THUMB_DEADZONE);
-        gamepad->rightStickY = Win32NormalizeStickValue(pad->sThumbRY, VSB_GAMEPAD_THUMB_DEADZONE);
+        gamepad->leftStick.x = Win32NormalizeStickValue(pad->sThumbLX, VSB_GAMEPAD_THUMB_DEADZONE);
+        gamepad->leftStick.y = Win32NormalizeStickValue(pad->sThumbLY, VSB_GAMEPAD_THUMB_DEADZONE);
+        gamepad->rightStick.x = Win32NormalizeStickValue(pad->sThumbRX, VSB_GAMEPAD_THUMB_DEADZONE);
+        gamepad->rightStick.y = Win32NormalizeStickValue(pad->sThumbRY, VSB_GAMEPAD_THUMB_DEADZONE);
     }
     else
     {
@@ -275,49 +275,49 @@ internal void Win32ProcessKeyboardInput(controller *keyboard, WPARAM VKCode, LPA
             case 'W':
             {
                 keyboard->up = keyIsDown;
-                keyboard->leftStickY = keyIsDown ? 1.0f : 0;
+                keyboard->leftStick.y = keyIsDown ? 1.0f : 0;
             } break;
 
             case 'S':
             {
                 keyboard->down = keyIsDown;
-                keyboard->leftStickY = keyIsDown ? -1.0f : 0;
+                keyboard->leftStick.y = keyIsDown ? -1.0f : 0;
             } break;
 
             case 'A':
             {
                 keyboard->left = keyIsDown;
-                keyboard->leftStickX = keyIsDown ? -1.0f : 0;
+                keyboard->leftStick.x = keyIsDown ? -1.0f : 0;
             } break;
 
             case 'D':
             {
                 keyboard->right = keyIsDown;
-                keyboard->leftStickX = keyIsDown ? 1.0f : 0;
+                keyboard->leftStick.x = keyIsDown ? 1.0f : 0;
             } break;
 
             case VK_UP:
             {
                 keyboard->y = keyIsDown;
-                keyboard->rightStickY = keyIsDown ? 1.0f : 0;
+                keyboard->rightStick.y = keyIsDown ? 1.0f : 0;
             } break;
 
             case VK_DOWN:
             {
                 keyboard->a = keyIsDown;
-                keyboard->rightStickY = keyIsDown ? -1.0f : 0;
+                keyboard->rightStick.y = keyIsDown ? -1.0f : 0;
             } break;
 
             case VK_LEFT:
             {
                 keyboard->x = keyIsDown;
-                keyboard->rightStickX = keyIsDown ? -1.0f : 0;
+                keyboard->rightStick.x = keyIsDown ? -1.0f : 0;
             } break;
 
             case VK_RIGHT:
             {
                 keyboard->b = keyIsDown;
-                keyboard->rightStickX = keyIsDown ? 1.0f : 0;
+                keyboard->rightStick.x = keyIsDown ? 1.0f : 0;
             } break;
 
             case 'Q':
