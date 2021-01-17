@@ -175,14 +175,25 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         gameState->playerFront[1] = LoadBMP(gameMemory->DebugReadFile, "test_player_front_2.bmp");
         gameState->playerFront[2] = LoadBMP(gameMemory->DebugReadFile, "test_player_front_3.bmp");
 
-        gameState->playerPos = {100.0f, 100.0f};
+        gameState->playerPos = {200.0f, 200.0f};
 
         gameMemory->initialized = true;
     }
 
-    // TODO: make coordinates screen independent
-    gameState->playerPos += 4.0f*input->gamepad.leftStick;
-    gameState->playerPos += 4.0f*input->keyboard.leftStick;
+    // TODO: make sure the input vectors are max length 1
+    v2 playerAccel;
+    f32 playerSpeed = 3000.0f;
+    playerAccel += input->gamepad.leftStick;
+    playerAccel *= playerSpeed;
+    playerAccel -= 10.0f*gameState->playerVelocity; // Artificial friction
+
+    // newPos = 1/2*a*t^2 + v*t + oldPos
+    v2 newPlayerPos = (0.5f*playerAccel*Square(input->dTime) +
+                       gameState->playerVelocity*input->dTime +
+                       gameState->playerPos);
+    gameState->playerPos = newPlayerPos;
+    // newVel = a*t + oldVel
+    gameState->playerVelocity = playerAccel*input->dTime + gameState->playerVelocity;
 
     // NOTE: Here i clear the buffer to make sure that there are no
     // problems with the rendering

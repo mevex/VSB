@@ -143,6 +143,7 @@ struct game_state
     bmp_image playerFront[3];
 
     v2 playerPos;
+    v2 playerVelocity;
 };
 
 #define GAME_UPDATE_AND_RENDER(name) void name(game_memory *gameMemory, game_input *input)

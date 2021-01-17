@@ -254,6 +254,15 @@ internal void Win32PoolGamepadState(controller *gamepad)
         gamepad->leftStick.y = Win32NormalizeStickValue(pad->sThumbLY, VSB_GAMEPAD_THUMB_DEADZONE);
         gamepad->rightStick.x = Win32NormalizeStickValue(pad->sThumbRX, VSB_GAMEPAD_THUMB_DEADZONE);
         gamepad->rightStick.y = Win32NormalizeStickValue(pad->sThumbRY, VSB_GAMEPAD_THUMB_DEADZONE);
+
+        if(gamepad->leftStick.y != 0)
+        {
+            gamepad->leftStick.y = -gamepad->leftStick.y;
+        }
+        if(gamepad->rightStick.y != 0)
+        {
+            gamepad->rightStick.y = -gamepad->rightStick.y;
+        }
     }
     else
     {
@@ -275,49 +284,41 @@ internal void Win32ProcessKeyboardInput(controller *keyboard, WPARAM VKCode, LPA
             case 'W':
             {
                 keyboard->up = keyIsDown;
-                keyboard->leftStick.y = keyIsDown ? 1.0f : 0;
             } break;
 
             case 'S':
             {
                 keyboard->down = keyIsDown;
-                keyboard->leftStick.y = keyIsDown ? -1.0f : 0;
             } break;
 
             case 'A':
             {
                 keyboard->left = keyIsDown;
-                keyboard->leftStick.x = keyIsDown ? -1.0f : 0;
             } break;
 
             case 'D':
             {
                 keyboard->right = keyIsDown;
-                keyboard->leftStick.x = keyIsDown ? 1.0f : 0;
             } break;
 
             case VK_UP:
             {
                 keyboard->y = keyIsDown;
-                keyboard->rightStick.y = keyIsDown ? 1.0f : 0;
             } break;
 
             case VK_DOWN:
             {
                 keyboard->a = keyIsDown;
-                keyboard->rightStick.y = keyIsDown ? -1.0f : 0;
             } break;
 
             case VK_LEFT:
             {
                 keyboard->x = keyIsDown;
-                keyboard->rightStick.x = keyIsDown ? -1.0f : 0;
             } break;
 
             case VK_RIGHT:
             {
                 keyboard->b = keyIsDown;
-                keyboard->rightStick.x = keyIsDown ? 1.0f : 0;
             } break;
 
             case 'Q':

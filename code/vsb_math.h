@@ -14,6 +14,16 @@ inline int32 TruncateFloatToInt32(f32 value)
     return (int32)(value);
 }
 
+inline int32 Square(int32 a)
+{
+    return a*a;
+}
+
+inline f32 Square(f32 a)
+{
+    return a*a;
+}
+
 union v2
 {
     struct
@@ -27,8 +37,11 @@ union v2
         this->x = x;
         this->y = y;
     }
-
-    v2(){};
+    v2()
+    {
+        this->x = 0.0f;
+        this->y = 0.0f;
+    }
 };
 
 inline v2 operator+(v2 a, v2 b)
@@ -50,6 +63,12 @@ inline v2 operator-(v2 a, v2 b)
 inline v2 operator-(v2 v)
 {
     return v2(-v.x, -v.y);
+}
+
+inline v2 operator-=(v2 &a, v2 b)
+{
+    a = a + (-b);
+    return a;
 }
 
 inline v2 operator*(v2 v, f32 value)

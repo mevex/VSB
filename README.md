@@ -23,11 +23,14 @@ I will continue to update this list with present and planned features.
  - [x] Fixed frame rate
  - [x] Live code editing
  - [x] Bitmap loading
- - [ ] Vectors
+ - [x] Vectors
+ - [x] Physically based movement
  - [ ] Pixel indipendent coordinates
- - [ ] Physically based movement
  - [ ] Mindowski based collision
- - [ ] Simple font rendering
+ - [ ] Simple monospaced font rendering
+
+**Note:**
+The items in the list above are not to be intended as full and bulletproof features, most of them are just a draft and are used to be able to explore the possibilities within the code.
  
 # Experiments
 Here I will list all the experiment that I will be doing during the development and I will show the result.
