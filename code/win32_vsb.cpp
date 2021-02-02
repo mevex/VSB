@@ -32,7 +32,7 @@ DEBUG_READ_FILE(DebugReadFile)
         if(GetFileSizeEx(fileHandle, &fileSize64))
         {
             Assert(fileSize64.QuadPart <= 0xFFFFFFFF);
-            uint32 fileSize = (uint32)fileSize64.QuadPart;
+            ui32 fileSize = (ui32)fileSize64.QuadPart;
             result.memory = VirtualAlloc(0, fileSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
             if(result.memory)
             {
@@ -334,24 +334,24 @@ internal void Win32ProcessKeyboardInput(controller *keyboard, WPARAM VKCode, LPA
     }
 }
 
-internal uint64 Win32GetTime()
+internal ui64 Win32GetTime()
 {
     LARGE_INTEGER time;
     QueryPerformanceCounter(&time);
-    return (uint64)time.QuadPart;
+    return (ui64)time.QuadPart;
 }
 
-internal f32 Win32GetMSDifference(uint64 timeToCompare)
+internal f32 Win32GetMSDifference(ui64 timeToCompare)
 {
-    uint64 timeNow = Win32GetTime();
+    ui64 timeNow = Win32GetTime();
     f32 resultMS = ((f32)(timeNow - timeToCompare) / (f32)globalPerfCountFreq.QuadPart)*1000.0f;
     return resultMS;
 }
 
-internal void Win32ProfileCode(uint64 *lastCounter, uint64 *lastCycleCount, f32 frameTimeMS)
+internal void Win32ProfileCode(ui64 *lastCounter, ui64 *lastCycleCount, f32 frameTimeMS)
 {
-    uint64 endCycleCount = __rdtsc();
-    uint64 cyclesElapsed = endCycleCount - *lastCycleCount;
+    ui64 endCycleCount = __rdtsc();
+    ui64 cyclesElapsed = endCycleCount - *lastCycleCount;
 
     f32 MCyclesPerFrame = (f32)cyclesElapsed / (1000.0f * 1000.0f);
     f32 profileTimeMS = Win32GetMSDifference(*lastCounter);
@@ -435,8 +435,8 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
         {
             // NOTE: Profiling initialization
             QueryPerformanceFrequency(&globalPerfCountFreq);
-            uint64 lastCounter = Win32GetTime();
-            uint64 lastCycleCount = __rdtsc();
+            ui64 lastCounter = Win32GetTime();
+            ui64 lastCycleCount = __rdtsc();
 
             // NOTE: Game initialization
             globalRunning = true;
@@ -471,7 +471,7 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
             f32 targetMSPerFrame = 1000.0f / (f32)monitorRefreshRate;
             UINT desiredSchedulerMS = 1;
             bool sleepIsGranular = (timeBeginPeriod(desiredSchedulerMS) == TIMERR_NOERROR);
-            uint64 beginningFrameTime = Win32GetTime();
+            ui64 beginningFrameTime = Win32GetTime();
 
             // NOTE: Input initialization
             Win32LoadXInput();

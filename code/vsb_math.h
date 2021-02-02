@@ -3,18 +3,29 @@
 #include <math.h>
 #include "defines.h"
 
+#define Max(a, b) ((a)>(b)) ? a : b
+#define Min(a, b) ((a)<(b)) ? a : b
+#define Clamp(value, min, max) ((value)>(max)) ? (max) : (((value)<(min)) ? (min) : (value))
+
+#define ABS(value) (((value)>=0) ? (value) : -(value))
+
 // TODO: Intrinsics?
-inline int32 RoundFloatToInt32(f32 value)
+inline i32 RoundToInt32(f32 value)
 {
-    return (int32)lroundf(value);
+    return (i32)lroundf(value);
 }
 
-inline int32 TruncateFloatToInt32(f32 value)
+inline i32 FloorToInt32(f32 value)
 {
-    return (int32)(value);
+    return (i32)floorf(value);
 }
 
-inline int32 Square(int32 a)
+inline i32 TruncateFloatToInt32(f32 value)
+{
+    return (i32)(value);
+}
+
+inline i32 Square(i32 a)
 {
     return a*a;
 }
@@ -24,6 +35,13 @@ inline f32 Square(f32 a)
     return a*a;
 }
 
+inline i32 Mod(int a, int b)
+{
+    if(b < 0) b = -b;
+    i32 result = a % b;
+    return result < 0 ? result + b: result;
+}
+
 union v2
 {
     struct
@@ -31,11 +49,16 @@ union v2
         f32 x, y;
     };
     f32 comp[2];
-
+    
     v2(f32 x, f32 y)
     {
         this->x = x;
         this->y = y;
+    }
+    v2(i32 x, i32 y)
+    {
+        this->x = (f32)x;
+        this->y = (f32)y;
     }
     v2()
     {
@@ -43,6 +66,11 @@ union v2
         this->y = 0.0f;
     }
 };
+
+inline f32 InnerProduct(v2 a, v2 b)
+{
+    return a.x*b.x + a.y*b.y;
+}
 
 inline v2 operator+(v2 a, v2 b)
 {
@@ -84,5 +112,16 @@ inline v2 operator*(f32 value, v2 v)
 inline v2 operator*=(v2 &v, f32 value)
 {
     v = v * value;
+    return v;
+}
+
+inline v2 operator/(v2 v, f32 value)
+{
+    return v2(v.x/value, v.y/value);
+}
+
+inline v2 operator/=(v2 &v, f32 value)
+{
+    v = v / value;
     return v;
 }

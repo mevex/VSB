@@ -1,8 +1,8 @@
 // NOTE: This file contains the code for the interpolation test
 
-void DrawRectangle(v2 p, v2 size, uint32 color, render_buffer buffer);
+void DrawRectangle(v2 p, v2 size, ui32 color, render_buffer buffer);
 
-void DrawLine(v2 start, v2 end, uint32 color, render_buffer buffer)
+void DrawLine(v2 start, v2 end, ui32 color, render_buffer buffer)
 {
     f32 dx = ABS(end.x - start.x);
     f32 dy = ABS(end.y - start.y);
@@ -12,7 +12,7 @@ void DrawLine(v2 start, v2 end, uint32 color, render_buffer buffer)
     v2 p;
     v2 thickness(2.0f, 2.0f);
     f32 d;
-    for(int i = 0; i < maxd; i++)
+    for(i32 i = 0; i < maxd; i++)
     {
         d = (f32)i*delta;
 
@@ -23,7 +23,7 @@ void DrawLine(v2 start, v2 end, uint32 color, render_buffer buffer)
     }
 }
 
-void InterporateThreePoints(v2 p0, v2 p1, v2 p2, uint32 color, render_buffer buffer)
+void InterporateThreePoints(v2 p0, v2 p1, v2 p2, ui32 color, render_buffer buffer)
 {
     f32 dx = ABS(p1.x - p0.x) + ABS(p2.x - p1.x);
     f32 dy = ABS(p1.y - p0.y) + ABS(p2.y - p1.y);
@@ -33,7 +33,7 @@ void InterporateThreePoints(v2 p0, v2 p1, v2 p2, uint32 color, render_buffer buf
     v2 p;
     v2 thickness(2.0f, 2.0f);
     f32 d;
-    for(int i = 0; i < maxd; i++)
+    for(i32 i = 0; i < maxd; i++)
     {
         d = (f32)i*delta;
 
@@ -49,7 +49,7 @@ void InterporateThreePoints(v2 p0, v2 p1, v2 p2, uint32 color, render_buffer buf
     }
 }
 
-void InterporateFourPoints(v2 p0, v2 p1, v2 p2, v2 p3, uint32 color, render_buffer buffer)
+void InterporateFourPoints(v2 p0, v2 p1, v2 p2, v2 p3, ui32 color, render_buffer buffer)
 {
     f32 dx = ABS(p1.x - p0.x) + ABS(p2.x - p1.x) + ABS(p2.x - p3.x);
     f32 dy = ABS(p1.y - p0.y) + ABS(p2.y - p1.y) + ABS(p2.y - p3.y);
@@ -59,7 +59,7 @@ void InterporateFourPoints(v2 p0, v2 p1, v2 p2, v2 p3, uint32 color, render_buff
     v2 p;
     v2 thickness(2.0f, 2.0f);
     f32 d;
-    for(int i = 0; i < maxd; i++)
+    for(i32 i = 0; i < maxd; i++)
     {
         d = (f32)i*delta;
 
@@ -75,9 +75,4 @@ void InterporateFourPoints(v2 p0, v2 p1, v2 p2, v2 p3, uint32 color, render_buff
 
         DrawRectangle(p, thickness, color, buffer);
     }
-}
-
-int main()
-{
-    return 0;
 }

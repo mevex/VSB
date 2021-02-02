@@ -25,7 +25,7 @@ I will continue to update this list with present and planned features.
  - [x] Bitmap loading
  - [x] Vectors
  - [x] Physically based movement
- - [ ] Pixel indipendent coordinates
+ - [x] Pixel indipendent coordinates
  - [ ] Mindowski based collision
  - [ ] Simple monospaced font rendering
 

@@ -3,9 +3,9 @@
 
 #include <intrin.h>
 
-inline uint32 FindFirstLowBitSet(int32 value)
+inline ui32 FindFirstLowBitSet(i32 value)
 {
     unsigned long result;
-    uint8 found = _BitScanForward(&result, value);
+    ui8 found = _BitScanForward(&result, value);
     return (found) ? result: -1;
 }
