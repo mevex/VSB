@@ -101,6 +101,7 @@ void DrawBitmap(v2 p, v2 shift, bmp_image bmp, render_buffer buffer)
     i32 width = bmp.width;
     i32 height = bmp.height;
     
+    // NOTE(mevex): These are used if the bitmap is partially off the screen
     i32 sourceOffsetX = 0;
     i32 sourceOffsetY = 0;
     
@@ -113,7 +114,7 @@ void DrawBitmap(v2 p, v2 shift, bmp_image bmp, render_buffer buffer)
     if(bottom < 0)
     {
         height += bottom;
-        sourceOffsetY = bottom;
+        sourceOffsetY -= bottom;
         bottom= 0;
     }
     
@@ -122,9 +123,6 @@ void DrawBitmap(v2 p, v2 shift, bmp_image bmp, render_buffer buffer)
     
     ui32 *destRow = (ui32 *)buffer.memory + buffer.width*bottom + left;
     ui32 *sourceRow = (ui32 *)bmp.pixels;
-    /*
-        ui32 *sourceRow = (ui32 *)bmp.pixels + (bmp.width*(bmp.height - 1));
-     */
     sourceRow += (bmp.width*sourceOffsetY) + sourceOffsetX;
     f32 sr, sg, sb, a;  // source colors
     f32 dr, dg, db;     // destination colors
@@ -168,8 +166,7 @@ void DrawBitmap(v2 p, bmp_image bmp, render_buffer buffer)
     DrawBitmap(p, v2(0, 0), bmp, buffer);
 }
 
-// TODO(mevex): Do I need this?
-v2 ConvertTileCoordinatesIntoV2(level *level, tile_coordinates p)
+inline v2 ConvertTileCoordinatesIntoV2(level *level, tile_coordinates p)
 {
     v2 result = {};
     
@@ -177,7 +174,6 @@ v2 ConvertTileCoordinatesIntoV2(level *level, tile_coordinates p)
     result.y += p.tileY*level->tileSidePixels;
     result += p.onTilePos*level->pixelsPerMeter;
     
-    // TODO(mevex): Switch to pointer arithmetics
     room room = level->rooms[p.roomY][p.roomX];
     result += room.mapShift;
     
@@ -200,7 +196,6 @@ void RectifyTileCoordinates(tile_coordinates *position, level *level)
     position->tileY += tileDiffY;
     position->onTilePos = newOnTilePos;
     
-    // TODO(mevex): Switch to pointer arithmetics
     i32 roomX = position->roomX;
     i32 roomY = position->roomY;
     room testRoom = level->rooms[roomX][roomY];;
@@ -249,7 +244,6 @@ tile_coordinates ScreenPosToTilePos(v2 position, level *level, i32 roomX = 0, i3
 
 i32 GetTileValue(level *level, tile_coordinates testP)
 {
-    // TODO(mevex): Switch to pointer aritmetics
     i32 horTiles = level->rooms[testP.roomY][testP.roomX].horTiles;
     ui32 *tiles = level->rooms[testP.roomY][testP.roomX].tiles;
     i32 result = *(tiles + testP.tileY*horTiles + testP.tileX);
