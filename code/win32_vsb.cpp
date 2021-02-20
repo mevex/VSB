@@ -24,7 +24,7 @@ DEBUG_FREE_FILE(DebugFreeFile)
 DEBUG_READ_FILE(DebugReadFile)
 {
     debug_file result = {};
-        
+    
     HANDLE fileHandle = CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
     if(fileHandle != INVALID_HANDLE_VALUE)
     {
@@ -52,7 +52,7 @@ DEBUG_READ_FILE(DebugReadFile)
         }
         CloseHandle(fileHandle);
     }
-
+    
     return result;
 }
 
@@ -60,7 +60,7 @@ DEBUG_WRITE_FILE(DebugWriteFile)
 {
     Assert(fileSize <= 0xFFFFFFFF);
     bool result = false;
-
+    
     HANDLE fileHandle = CreateFile(filename, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
     if(fileHandle != INVALID_HANDLE_VALUE)
     {
@@ -73,7 +73,7 @@ DEBUG_WRITE_FILE(DebugWriteFile)
         }
         CloseHandle(fileHandle);
     }
-
+    
     return result;
 }
 #endif
@@ -81,7 +81,7 @@ DEBUG_WRITE_FILE(DebugWriteFile)
 internal FILETIME Win32GetLastWriteTime(char *filename)
 {
     FILETIME result = {};
-
+    
     WIN32_FILE_ATTRIBUTE_DATA fileAttributes;
     if(GetFileAttributesEx(filename, GetFileExInfoStandard, &fileAttributes))
     {
@@ -95,9 +95,9 @@ internal win32_game_code Win32LoadGameCode(char *pathDll, char *pathTempDll)
     // TODO: The shipping version of this does not need to copy nor check
     // the last write time
     win32_game_code result = {};
-
+    
     CopyFile(pathDll, pathTempDll, FALSE);
-
+    
     result.lastWriteDll = Win32GetLastWriteTime(pathDll);
     result.gameCodeDll = LoadLibraryA(pathTempDll);
     if(result.gameCodeDll)
@@ -109,7 +109,7 @@ internal win32_game_code Win32LoadGameCode(char *pathDll, char *pathTempDll)
     {
         result.UpdateAndRender = 0;
     }
-
+    
     return result;
 }
 
@@ -134,7 +134,7 @@ internal void Win32LoadXInput()
             XInputLibrary = LoadLibraryA("xinput9_1_0.dll");
         }
     }
-
+    
     if(XInputLibrary)
     {
         XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
@@ -153,20 +153,20 @@ internal void Win32CrateRenderBuffer(win32_render_buffer *win32Buffer, int width
     {
         VirtualFree(win32Buffer->memory, 0, MEM_RELEASE);
     }
-
+    
     int bytesPerPixel = 4;
     win32Buffer->width = width;
     win32Buffer->height = height;
-
+    
     // NOTE: The negative biHeight field is the clue to Windows to
     // treat this bitmap as top-down.
     win32Buffer->info.bmiHeader.biSize = sizeof(win32Buffer->info.bmiHeader);
     win32Buffer->info.bmiHeader.biWidth = width;
-    win32Buffer->info.bmiHeader.biHeight = -height;
+    win32Buffer->info.bmiHeader.biHeight = height;
     win32Buffer->info.bmiHeader.biPlanes = 1;
     win32Buffer->info.bmiHeader.biBitCount = 32;
     win32Buffer->info.bmiHeader.biCompression = BI_RGB;
-
+    
     // NOTE: The pages allocated with virtual alloc are arleady
     // cleared to 0, therefore the buffer is cleared to black for
     // free. The allocation must include also the MEM_RESERVE flag to
@@ -193,7 +193,7 @@ internal void Win32PaintWindow(HDC deviceContext, win32_render_buffer *win32Buff
 internal f32 Win32NormalizeStickValue(int value, int deadZone)
 {
     f32 result = 0;
-
+    
     if(value < -deadZone)
     {
         result = (f32)(value + deadZone) / (f32)(32768 - deadZone);
@@ -202,25 +202,25 @@ internal f32 Win32NormalizeStickValue(int value, int deadZone)
     {
         result = (f32)(value - deadZone) / (f32)(32767 - deadZone);
     }
-
+    
     return result;
 }
 
 internal f32 Win32NormalizeTriggerValue(int value, int deadZone)
 {
     f32 result = 0;
-
+    
     if(value > deadZone)
     {
         result = (f32)(value - deadZone) / (f32)(255 - deadZone);
     }
-
+    
     return result;
 }
 
 internal void Win32PoolGamepadState(controller *gamepad)
 {
-    // TODO: Add multiple controllers support
+    // TODO(mevex): Add multiple controllers support, maybe...
     int controllerIndex = 0;
     XINPUT_STATE controllerState;
     if(XInputGetState(controllerIndex, &controllerState) == ERROR_SUCCESS)
@@ -228,41 +228,32 @@ internal void Win32PoolGamepadState(controller *gamepad)
         // NOTE: Controller plugged in
         gamepad->connected = true;
         XINPUT_GAMEPAD *pad = &controllerState.Gamepad;
-
+        
         gamepad->up = (pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
         gamepad->down = (pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
         gamepad->left = (pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
         gamepad->right = (pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
-
+        
         gamepad->a = (pad->wButtons & XINPUT_GAMEPAD_A);
         gamepad->b = (pad->wButtons & XINPUT_GAMEPAD_B);
         gamepad->x = (pad->wButtons & XINPUT_GAMEPAD_X);
         gamepad->y = (pad->wButtons & XINPUT_GAMEPAD_Y);
-
+        
         gamepad->leftBumper = (pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER);
         gamepad->rightBumper = (pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER);
-
+        
         gamepad->menu = (pad->wButtons & XINPUT_GAMEPAD_START);
         gamepad->view = (pad->wButtons & XINPUT_GAMEPAD_BACK);
         gamepad->leftThumb = (pad->wButtons & XINPUT_GAMEPAD_LEFT_THUMB);
         gamepad->rightThumb = (pad->wButtons & XINPUT_GAMEPAD_RIGHT_THUMB);
-
+        
         gamepad->leftTriggerValue = Win32NormalizeTriggerValue(pad->bLeftTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD);
         gamepad->leftTriggerValue = Win32NormalizeTriggerValue(pad->bRightTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD);
-
-        gamepad->leftStick.x = Win32NormalizeStickValue(pad->sThumbLX, VSB_GAMEPAD_THUMB_DEADZONE);
-        gamepad->leftStick.y = Win32NormalizeStickValue(pad->sThumbLY, VSB_GAMEPAD_THUMB_DEADZONE);
-        gamepad->rightStick.x = Win32NormalizeStickValue(pad->sThumbRX, VSB_GAMEPAD_THUMB_DEADZONE);
-        gamepad->rightStick.y = Win32NormalizeStickValue(pad->sThumbRY, VSB_GAMEPAD_THUMB_DEADZONE);
-
-        if(gamepad->leftStick.y != 0)
-        {
-            gamepad->leftStick.y = -gamepad->leftStick.y;
-        }
-        if(gamepad->rightStick.y != 0)
-        {
-            gamepad->rightStick.y = -gamepad->rightStick.y;
-        }
+        
+        gamepad->leftStick.x = Clamp(Win32NormalizeStickValue(pad->sThumbLX, VSB_GAMEPAD_THUMB_DEADZONE), -1, 1);
+        gamepad->leftStick.y = Clamp(Win32NormalizeStickValue(pad->sThumbLY, VSB_GAMEPAD_THUMB_DEADZONE), -1, 1);
+        gamepad->rightStick.x = Clamp(Win32NormalizeStickValue(pad->sThumbRX, VSB_GAMEPAD_THUMB_DEADZONE), -1, 1);
+        gamepad->rightStick.y = Clamp(Win32NormalizeStickValue(pad->sThumbRY, VSB_GAMEPAD_THUMB_DEADZONE), -1, 1);
     }
     else
     {
@@ -275,7 +266,7 @@ internal void Win32ProcessKeyboardInput(controller *keyboard, WPARAM VKCode, LPA
 {
     bool prevStateDown = (lParam & (1 << 30)) != 0;
     bool keyIsDown = (lParam & (1 << 31)) == 0;
-            
+    
     // NOTE: This way we process just the transision between the states
     if(prevStateDown != keyIsDown)
     {
@@ -285,47 +276,47 @@ internal void Win32ProcessKeyboardInput(controller *keyboard, WPARAM VKCode, LPA
             {
                 keyboard->up = keyIsDown;
             } break;
-
+            
             case 'S':
             {
                 keyboard->down = keyIsDown;
             } break;
-
+            
             case 'A':
             {
                 keyboard->left = keyIsDown;
             } break;
-
+            
             case 'D':
             {
                 keyboard->right = keyIsDown;
             } break;
-
+            
             case VK_UP:
             {
                 keyboard->y = keyIsDown;
             } break;
-
+            
             case VK_DOWN:
             {
                 keyboard->a = keyIsDown;
             } break;
-
+            
             case VK_LEFT:
             {
                 keyboard->x = keyIsDown;
             } break;
-
+            
             case VK_RIGHT:
             {
                 keyboard->b = keyIsDown;
             } break;
-
+            
             case 'Q':
             {
                 keyboard->leftBumper = keyIsDown;
             } break;
-
+            
             case 'E':
             {
                 keyboard->rightBumper = keyIsDown;
@@ -352,17 +343,17 @@ internal void Win32ProfileCode(ui64 *lastCounter, ui64 *lastCycleCount, f32 fram
 {
     ui64 endCycleCount = __rdtsc();
     ui64 cyclesElapsed = endCycleCount - *lastCycleCount;
-
+    
     f32 MCyclesPerFrame = (f32)cyclesElapsed / (1000.0f * 1000.0f);
     f32 profileTimeMS = Win32GetMSDifference(*lastCounter);
     f32 FPS = 1000.0f / profileTimeMS;
     f32 blitMS = profileTimeMS - frameTimeMS;
-
+    
     char Buffer[256];
     sprintf_s(Buffer, "Time:%.02fms,  FPS:%.02f,  Mc/f:%.02f, Blit-time:%.02fms\n",
               profileTimeMS, FPS, MCyclesPerFrame, blitMS);
     OutputDebugStringA(Buffer);
-
+    
     *lastCounter = Win32GetTime();
     *lastCycleCount = endCycleCount;
 }
@@ -370,7 +361,7 @@ internal void Win32ProfileCode(ui64 *lastCounter, ui64 *lastCycleCount, f32 fram
 LRESULT CALLBACK Win32WindowCallback(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
 {
     LRESULT result = 0; // Return 0 if the message was processed
-
+    
     switch(message)
     {
         case WM_DESTROY:
@@ -379,26 +370,26 @@ LRESULT CALLBACK Win32WindowCallback(HWND window, UINT message, WPARAM wParam, L
             OutputDebugStringA("WM_DESTROY\n");
             result = DefWindowProc(window, message, wParam, lParam);
         } break;
-
+        
         case WM_KEYDOWN:
         case WM_KEYUP:
         {
             // TODO insert assertion
             OutputDebugStringA("WARNING! Keyboard message passed through the callback\n");
         } break;
-
+        
         case WM_CLOSE:
         {
             // TODO: Ask for confirmation
             PostQuitMessage(0);
         } break;
-
+        
         default:
         {
             result = DefWindowProc(window, message, wParam, lParam);
         }
     }
-
+    
     return result;
 }
 
@@ -408,7 +399,7 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
                     int showStyle)
 {
     WNDCLASSEXA windowClass = {};
-
+    
     // NOTE: HREDRAW and VREDRAW ensure that the entire window will be
     // repainted every time, not only the update region. OWNDC allow
     // us to get the DC at the beginning of the program and use forever
@@ -418,11 +409,12 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
     windowClass.hInstance = instanceHandle;
     windowClass.lpszClassName = "VBSClass";
     // windowClass.hIcon; Maybe set this in the future
-
+    
     if(RegisterClassEx(&windowClass))
     {
-        // NOTE: The XOR removes the THICKFRAME flag that allow the
-        // user to resize the window. VISIBLE causes the window to be
+        // NOTE(mevex): I can XOR with the THICKFRAME flag to remove it, it allows the
+        // user to resize the window.
+        // NOTE: VISIBLE causes the window to be
         // visible at startup so there is no need to call ShowWindow()
         HWND windowHandle = CreateWindowExA(0,
                                             windowClass.lpszClassName,
@@ -437,15 +429,15 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
             QueryPerformanceFrequency(&globalPerfCountFreq);
             ui64 lastCounter = Win32GetTime();
             ui64 lastCycleCount = __rdtsc();
-
+            
             // NOTE: Game initialization
             globalRunning = true;
             // TODO: The shipping version does not need hardcoded
-            // paths and the temp file because will not be any reloading
+            // paths and the temp file because reloading will nto be needed
             char *pathDll = "../build/vsb.dll";
             char *pathTempDll = "../build/temp_vsb.dll";
             win32_game_code game = Win32LoadGameCode(pathDll, pathTempDll);
-
+            
             HDC deviceContext = GetDC(windowHandle);
             win32_render_buffer win32BackBuffer;
             Win32CrateRenderBuffer(&win32BackBuffer, 1280, 720);
@@ -460,7 +452,7 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
             // TODO: Maybe we want to use MEM_LARGE_PAGES for this allocation?
             gameMemory.memory = VirtualAlloc(0, gameMemory.memorySize,
                                              MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
-
+            
             // NOTE: Fixed framerate initialization
             int monitorRefreshRate = 60;
             int vRefresh = GetDeviceCaps(deviceContext, VREFRESH);
@@ -472,14 +464,14 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
             UINT desiredSchedulerMS = 1;
             bool sleepIsGranular = (timeBeginPeriod(desiredSchedulerMS) == TIMERR_NOERROR);
             ui64 beginningFrameTime = Win32GetTime();
-
+            
             // NOTE: Input initialization
             Win32LoadXInput();
             game_input input = {};
             input.keyboard.connected = true;
             input.analog = false;
             input.dTime = 1 / (f32)monitorRefreshRate;
-
+            
             if(gameMemory.memory)
             {
                 while(globalRunning)
@@ -495,7 +487,7 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
                         Win32UnloadGameCode(&game);
                         game = Win32LoadGameCode(pathDll, pathTempDll);
                     }
-
+                    
                     MSG message;
                     while(PeekMessage(&message, 0, 0, 0, PM_REMOVE))
                     {
@@ -515,14 +507,14 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
                             DispatchMessage(&message);
                         }
                     }
-
+                    
                     Win32PoolGamepadState(&input.gamepad);
                     if(game.UpdateAndRender)
                     {
                         game.UpdateAndRender(&gameMemory, &input);
                     }
                     Win32PaintWindow(deviceContext, &win32BackBuffer);
-
+                    
                     // NOTE: After we blit, we sleep and spinlock for
                     // the remaining time of the frame. Since we
                     // cannot blit in v-sync we can at least ensure
@@ -539,16 +531,16 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
                                 Sleep(sleepMS);
                             }
                         }
-
+                        
                         frameTimeMS = Win32GetMSDifference(beginningFrameTime);
-
+                        
                         while(frameTimeMS < targetMSPerFrame)
                         {
                             // NOTE: We spinlock the remaining time
                             frameTimeMS = Win32GetMSDifference(beginningFrameTime);
                         }
                     }
-
+                    
                     // NOTE: beginningFrameTime gets updated here
                     // so we dont miss the profile time
                     beginningFrameTime = Win32GetTime();
@@ -563,7 +555,7 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
             }
         }
     }
-
+    
     // NOTE: Windows takes care of destroying the window and cleaning
     // up. No need to waste the user time!!!
     // (https://guide.handmadehero.org/code/day003/#550)

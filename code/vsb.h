@@ -164,7 +164,10 @@ struct room
 
 struct level
 {
-    f32 tileSide;
+    f32 tileSidePixels;
+    f32 tileSideMeters;
+    f32 pixelsPerMeter;
+    
     i32 horRooms;
     i32 verRooms;
     i32 nRooms;

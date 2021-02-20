@@ -3,8 +3,8 @@
 #include <math.h>
 #include "defines.h"
 
-#define Max(a, b) ((a)>(b)) ? a : b
-#define Min(a, b) ((a)<(b)) ? a : b
+#define Max(a, b) ((a)>(b)) ? (a) : (b)
+#define Min(a, b) ((a)<(b)) ? (a) : (b)
 #define Clamp(value, min, max) ((value)>(max)) ? (max) : (((value)<(min)) ? (min) : (value))
 
 #define ABS(value) (((value)>=0) ? (value) : -(value))
