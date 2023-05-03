@@ -1,6 +1,5 @@
 #pragma once
 
-#include "defines.h"
 #include "utils.h"
 #include "vsb_math.h"
 

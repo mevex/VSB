@@ -7,7 +7,7 @@
 #define Min(a, b) ((a)<(b)) ? (a) : (b)
 #define Clamp(value, min, max) ((value)>(max)) ? (max) : (((value)<(min)) ? (min) : (value))
 
-#define ABS(value) (((value)>=0) ? (value) : -(value))
+#define Abs(value) (((value)>=0) ? (value) : -(value))
 
 // TODO: Intrinsics?
 inline i32 RoundToInt32(f32 value)
@@ -20,19 +20,39 @@ inline i32 FloorToInt32(f32 value)
     return (i32)floorf(value);
 }
 
+inline i32 CeilingToInt32(f32 value)
+{
+    return FloorToInt32(value) + 1;
+}
+
 inline i32 TruncateFloatToInt32(f32 value)
 {
     return (i32)(value);
 }
 
-inline i32 Square(i32 a)
+inline f32 FractionalPart(f32 value)
 {
-    return a*a;
+    return value - f32(FloorToInt32(value));
 }
 
-inline f32 Square(f32 a)
+inline f32 ReverseFractionalPart(f32 value)
 {
-    return a*a;
+    return 1 - FractionalPart(value);
+}
+
+inline i32 Square(i32 value)
+{
+    return value*value;
+}
+
+inline f32 Square(f32 value)
+{
+    return value*value;
+}
+
+inline f32 SquareRoot(f32 value)
+{
+    return f32(sqrt(value));
 }
 
 inline i32 Mod(int a, int b)
@@ -59,6 +79,16 @@ union v2
     {
         this->x = (f32)x;
         this->y = (f32)y;
+    }
+    v2(f32 x, i32 y)
+    {
+        this->x = x;
+        this->y = (f32)y;
+    }
+    v2(i32 x, f32 y)
+    {
+        this->x = (f32)x;
+        this->y = y;
     }
     v2()
     {

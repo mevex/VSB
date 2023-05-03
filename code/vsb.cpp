@@ -1,6 +1,86 @@
 #include "vsb.h"
 
-#include "test_interpolation.cpp"
+//#include "test_interpolation.cpp"
+
+void DrawPixel(v2 p, ui32 color, render_buffer buffer)
+{
+    if(p.x < 0 || p.x >= buffer.width ||
+       p.y < 0 || p.y >= buffer.height)
+        return;
+    
+    // TODO(mevex): This are rounds for now (Research needed)
+    i32 x = RoundToInt32(p.x);
+    i32 y = RoundToInt32(p.y);
+    
+    ui32 *targetPixel = (ui32 *)buffer.memory + buffer.width*y + x;
+    f32 alpha = ExtractA(color) / 255.0f;
+    
+    if(alpha < 1.0f)
+    {
+        ui8 rInput = ExtractR(color);
+        ui8 gInput = ExtractG(color);
+        ui8 bInput = ExtractB(color);
+        
+        ui8 rTarget = ExtractR(*targetPixel);
+        ui8 gTarget = ExtractG(*targetPixel);
+        ui8 bTarget = ExtractB(*targetPixel);
+        
+        ui8 rNew = (ui8)(RoundToInt32(alpha*rInput + (1-alpha)*rTarget));
+        ui8 gNew = (ui8)(RoundToInt32(alpha*gInput + (1-alpha)*gTarget));
+        ui8 bNew = (ui8)(RoundToInt32(alpha*bInput + (1-alpha)*bTarget));
+        
+        color = VSB_RGBA(rNew, gNew, bNew, 0xff);
+    }
+    
+    *targetPixel = color;
+    
+}
+
+void DrawLine(v2 beg, v2 end, ui32 color, render_buffer buffer)
+{
+    // NOTE(mevex): This is an implementation of Xiaolin Wu's line algorithm
+    
+    bool steep = Abs(end.y - beg.y) > Abs(end.x - beg.x);
+    if(steep)
+    {
+        Swap(beg.x, beg.y);
+        Swap(end.x, end.y);
+    }
+    if(beg.x > end.x)
+    {
+        Swap(beg.x, end.x);
+        Swap(beg.y, end.y);
+    }
+    
+    f32 dx = end.x - beg.x;
+    f32 dy = end.y - beg.y;
+    f32 gradient = AlmostZero(dx) ? 1.0f : dy/dx;
+    
+    ui8 r = ExtractR(color);
+    ui8 g = ExtractG(color);
+    ui8 b = ExtractB(color);
+    ui8 a = ExtractA(color);
+    
+    float y = beg.y;
+    if(steep)
+    {
+        for(i32 x = RoundToInt32(beg.x); x <= RoundToInt32(end.x); ++x)
+        {
+            DrawPixel(v2(y - 0.5f, x), VSB_RGBA(r, g, b, ReverseFractionalPart(y)*a), buffer);
+            DrawPixel(v2(y + 0.5f, x), VSB_RGBA(r, g, b, FractionalPart(y)*a), buffer);
+            y += gradient;
+        }
+    }
+    else
+    {
+        for(i32 x = RoundToInt32(beg.x); x <= RoundToInt32(end.x); ++x)
+        {
+            DrawPixel(v2(x, y - 0.5f), VSB_RGBA(r, g, b, ReverseFractionalPart(y)*a), buffer);
+            DrawPixel(v2(x, y + 0.5f), VSB_RGBA(r, g, b, FractionalPart(y)*a), buffer);
+            y += gradient;
+        }
+    }
+}
 
 void DrawRectangle(v2 p, v2 size, ui32 color, render_buffer buffer)
 {
@@ -36,12 +116,40 @@ void DrawRectangle(v2 p, v2 size, ui32 color, render_buffer buffer)
     }
 }
 
-void DrawPixel(v2 p, ui32 color, render_buffer buffer)
+void DrawFilledCircle(v2 p, f32 r, ui32 color, render_buffer buffer)
 {
-    i32 x = RoundToInt32(p.x);
-    i32 y = RoundToInt32(p.y);
-    ui32 *pixel = (ui32 *)buffer.memory + buffer.width*y + x;
-    *pixel = color;
+    f32 fade = 0.5;
+    v2 LowerLeftBound = v2(p.x-r, p.y-r);
+    v2 UpperRightBound = v2(p.x+r, p.y+r);
+    
+    for(i32 y = FloorToInt32(LowerLeftBound.y) - 1; y < CeilingToInt32(UpperRightBound.y) + 1; y++)
+    {
+        for(i32 x = FloorToInt32(LowerLeftBound.x) - 1; x < CeilingToInt32(UpperRightBound.x) + 1; x++)
+        {
+            v2 distanceVector = v2(x,y) - p;
+            f32 distance = SquareRoot(InnerProduct(distanceVector, distanceVector));
+            if(distance < (r + fade))
+            {
+                if(distance < r)
+                {
+                    DrawPixel(v2(x,y), color, buffer);
+                }
+                else
+                {
+                    f32 delta = (distance - r);
+                    f32 floatAlpha = (1 - delta) / fade;
+                    
+                    ui8 alpha = ui8(RoundToInt32(floatAlpha * 255.0f));
+                    ui8 red   = ExtractR(color);
+                    ui8 green = ExtractB(color);
+                    ui8 blue  = ExtractG(color);
+                    
+                    ui32 newColor = VSB_RGBA(red, green, blue, alpha);
+                    DrawPixel(v2(x,y), newColor, buffer);
+                }
+            }
+        }
+    }
 }
 
 void FillEntireBuffer(render_buffer buffer, ui32 color)
@@ -369,8 +477,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     }
     // NOTE(mevex): These are in meters
     // TODO: make sure the input vectors are max length 1
-    Assert(ABS(input->gamepad.leftStick.x) <= 1);
-    Assert(ABS(input->gamepad.leftStick.y) <= 1);
+    Assert(Abs(input->gamepad.leftStick.x) <= 1);
+    Assert(Abs(input->gamepad.leftStick.y) <= 1);
     v2 playerAccel;
     f32 playerSpeed = 40.0f;
     playerAccel += input->gamepad.leftStick;
@@ -408,9 +516,14 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     currentTile += v2(20,0);
     DrawRectangle(currentTile, v2(gameState->level.tileSidePixels, gameState->level.tileSidePixels), VSB_RGB(255,200,200), gameMemory->backBuffer);
     
-    v2 squarePos = ConvertTileCoordinatesIntoV2(&gameState->level, gameState->playerTilePos);
-    DrawRectangle(squarePos - v2(5.0f, 5.0f), v2(10.0f, 10.0f), VSB_RGB(150,0,0), gameMemory->backBuffer);
+    v2 playerPos = ConvertTileCoordinatesIntoV2(&gameState->level, gameState->playerTilePos);
+    DrawRectangle(playerPos - v2(5.0f, 5.0f), v2(10.0f, 10.0f), VSB_RGB(150,0,0), gameMemory->backBuffer);
     DrawBitmap(&gameState->level, gameState->playerTilePos, v2(72, 35), gameState->playerFront[2], gameMemory->backBuffer);
     DrawBitmap(&gameState->level, gameState->playerTilePos, v2(72, 35), gameState->playerFront[1], gameMemory->backBuffer);
     DrawBitmap(&gameState->level, gameState->playerTilePos, v2(72, 35), gameState->playerFront[0], gameMemory->backBuffer);
+    //DrawBitmap(v2(200, 200), gameState->testBMP, gameMemory->backBuffer);
+    
+    DrawFilledCircle(playerPos, 20, VSB_RGB(255,0,0), gameMemory->backBuffer);
+    DrawLine(v2(10, 10), v2(100, 31), VSB_RGB(0,255,0), gameMemory->backBuffer);
+    DrawLine(v2(90, 10), v2(40, 310), VSB_RGB(0,255,0), gameMemory->backBuffer);
 }
