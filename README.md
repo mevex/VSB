@@ -26,6 +26,7 @@ I will continue to update this list with present and planned features.
  - [x] Vectors
  - [x] Physically based movement
  - [x] Pixel indipendent coordinates
+ - [x] Anti-Aliased lines and circles
  - [ ] Mindowski based collision
  - [ ] Simple monospaced font rendering
 
