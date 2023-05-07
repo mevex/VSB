@@ -10,6 +10,12 @@
 global_variable LARGE_INTEGER globalPerfCountFreq;
 global_variable bool globalRunning;
 
+global_variable WINDOWPLACEMENT globalWindowsPosition = {sizeof(globalWindowsPosition)};
+global_variable bool toggleFullscreen;
+global_variable bool fullscreenWindow;
+global_variable i32 displayWidth;
+global_variable i32 displayHeight;
+
 #if VSB_DEBUG
 DEBUG_FREE_FILE(DebugFreeFile)
 {
@@ -160,9 +166,11 @@ internal void Win32CrateRenderBuffer(win32_render_buffer *win32Buffer, int width
     
     // NOTE: The negative biHeight field is the clue to Windows to
     // treat this bitmap as top-down.
+    // TODO(mevex):  But why don't we have the negative height set?
+    win32Buffer->info = {};
     win32Buffer->info.bmiHeader.biSize = sizeof(win32Buffer->info.bmiHeader);
-    win32Buffer->info.bmiHeader.biWidth = width;
-    win32Buffer->info.bmiHeader.biHeight = height;
+    win32Buffer->info.bmiHeader.biWidth = win32Buffer->width;
+    win32Buffer->info.bmiHeader.biHeight = win32Buffer->height;
     win32Buffer->info.bmiHeader.biPlanes = 1;
     win32Buffer->info.bmiHeader.biBitCount = 32;
     win32Buffer->info.bmiHeader.biCompression = BI_RGB;
@@ -173,21 +181,35 @@ internal void Win32CrateRenderBuffer(win32_render_buffer *win32Buffer, int width
     // ensure that the function succeed, otherwise there may occur an
     // unexpected behavior and fail.
     int bitmapMemorySize = width * height * bytesPerPixel;
-    win32Buffer->memory = VirtualAlloc(0, bitmapMemorySize,
-                                       MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    win32Buffer->memory = VirtualAlloc(0, bitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
 }
 
-internal void Win32PaintWindow(HDC deviceContext, win32_render_buffer *win32Buffer)
+internal void Win32PaintWindow(HDC deviceContextHandle, win32_render_buffer *win32Buffer)
 {
     // NOTE: StretchDIBits is not the fastest way to show the back
-    // buffer in the window, this whould be BitBlt(), but is less
+    // buffer in the window, this whould be BitBlit(), but is less
     // "parameters demanding". Since performance is not a real concern
     // atm we will use this for now.
-    StretchDIBits(deviceContext,
-                  0, 0, win32Buffer->width, win32Buffer->height,
-                  0, 0, win32Buffer->width, win32Buffer->height,
-                  win32Buffer->memory, &win32Buffer->info,
-                  DIB_RGB_COLORS, SRCCOPY);
+    // Also checkout ChangeDisplaySettings on msdn if we want to set the
+    // monitor resolution in a convenient way if, for example, StretchDIBits
+    // becomes too slow.
+    // https://guide.handmadehero.org/code/day040/#3069
+    if(fullscreenWindow)
+    {
+        StretchDIBits(deviceContextHandle,
+                      0, 0, displayWidth, displayHeight,
+                      0, 0, win32Buffer->width, win32Buffer->height,
+                      win32Buffer->memory, &win32Buffer->info,
+                      DIB_RGB_COLORS, SRCCOPY);
+    }
+    else
+    {
+        StretchDIBits(deviceContextHandle,
+                      0, 0, win32Buffer->width, win32Buffer->height,
+                      0, 0, win32Buffer->width, win32Buffer->height,
+                      win32Buffer->memory, &win32Buffer->info,
+                      DIB_RGB_COLORS, SRCCOPY);
+    }
 }
 
 internal f32 Win32NormalizeStickValue(int value, int deadZone)
@@ -262,6 +284,38 @@ internal void Win32PoolGamepadState(controller *gamepad)
     }
 }
 
+internal void Win32ToggleFullscreen(HWND windowHandle)
+{
+    // NOTE(mevex): This follows Raymond Chen's prescriptions for fullscreen toggling, see:
+    // https://devblogs.microsoft.com/oldnewthing/20100412-00/?p=14353
+    DWORD Style = GetWindowLong(windowHandle, GWL_STYLE);
+    if (Style & WS_OVERLAPPEDWINDOW)
+    {
+        MONITORINFO monitorInfo = {sizeof(monitorInfo)};
+        if (GetWindowPlacement(windowHandle, &globalWindowsPosition) && GetMonitorInfo(MonitorFromWindow(windowHandle, MONITOR_DEFAULTTOPRIMARY), &monitorInfo))
+        {
+            SetWindowLong(windowHandle, GWL_STYLE, Style & ~WS_OVERLAPPEDWINDOW);
+            SetWindowPos(windowHandle, HWND_TOP,
+                         monitorInfo.rcMonitor.left, monitorInfo.rcMonitor.top,
+                         monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left,
+                         monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top,
+                         SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+            displayWidth = monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left;
+            displayHeight = monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top;
+            fullscreenWindow = true;
+        }
+    }
+    else
+    {
+        SetWindowLong(windowHandle, GWL_STYLE, Style | WS_OVERLAPPEDWINDOW);
+        SetWindowPlacement(windowHandle, &globalWindowsPosition);
+        SetWindowPos(windowHandle, NULL, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+                     SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+        fullscreenWindow = false;
+    }
+}
+
 internal void Win32ProcessKeyboardInput(controller *keyboard, WPARAM VKCode, LPARAM lParam)
 {
     bool prevStateDown = (lParam & (1 << 30)) != 0;
@@ -321,6 +375,14 @@ internal void Win32ProcessKeyboardInput(controller *keyboard, WPARAM VKCode, LPA
             {
                 keyboard->rightBumper = keyIsDown;
             } break;
+            
+            case 'F':
+            {
+                if(!prevStateDown)
+                {
+                    toggleFullscreen = true;
+                }
+            } break;
         }
     }
 }
@@ -358,7 +420,7 @@ internal void Win32ProfileCode(ui64 *lastCounter, ui64 *lastCycleCount, f32 fram
     *lastCycleCount = endCycleCount;
 }
 
-LRESULT CALLBACK Win32WindowCallback(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK Win32WindowCallback(HWND windowHandle, UINT message, WPARAM wParam, LPARAM lParam)
 {
     LRESULT result = 0; // Return 0 if the message was processed
     
@@ -368,13 +430,14 @@ LRESULT CALLBACK Win32WindowCallback(HWND window, UINT message, WPARAM wParam, L
         {
             // TODO: Handle this as an error and recreate the window?
             OutputDebugStringA("WM_DESTROY\n");
-            result = DefWindowProc(window, message, wParam, lParam);
+            result = DefWindowProc(windowHandle, message, wParam, lParam);
         } break;
         
         case WM_KEYDOWN:
         case WM_KEYUP:
         {
             // TODO insert assertion
+            Assert(false);
             OutputDebugStringA("WARNING! Keyboard message passed through the callback\n");
         } break;
         
@@ -386,7 +449,7 @@ LRESULT CALLBACK Win32WindowCallback(HWND window, UINT message, WPARAM wParam, L
         
         default:
         {
-            result = DefWindowProc(window, message, wParam, lParam);
+            result = DefWindowProc(windowHandle, message, wParam, lParam);
         }
     }
     
@@ -416,13 +479,13 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
         // user to resize the window.
         // NOTE: VISIBLE causes the window to be
         // visible at startup so there is no need to call ShowWindow()
-        HWND windowHandle = CreateWindowExA(0,
-                                            windowClass.lpszClassName,
-                                            "Valentino's SandBox",
-                                            (WS_OVERLAPPEDWINDOW|WS_VISIBLE),
-                                            CW_USEDEFAULT, CW_USEDEFAULT,
-                                            1296, 759,
-                                            0, 0, instanceHandle, 0);
+        HWND windowHandle = CreateWindowEx(0,
+                                           windowClass.lpszClassName,
+                                           "Valentino's SandBox",
+                                           (WS_OVERLAPPEDWINDOW|WS_VISIBLE),
+                                           CW_USEDEFAULT, CW_USEDEFAULT,
+                                           1296, 759,
+                                           0, 0, instanceHandle, 0);
         if(windowHandle)
         {
             // NOTE: Profiling initialization
@@ -506,6 +569,12 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
                             TranslateMessage(&message);
                             DispatchMessage(&message);
                         }
+                    }
+                    
+                    if(toggleFullscreen)
+                    {
+                        Win32ToggleFullscreen(windowHandle);
+                        toggleFullscreen = false;
                     }
                     
                     Win32PoolGamepadState(&input.gamepad);
