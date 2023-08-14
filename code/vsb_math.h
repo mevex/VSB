@@ -55,11 +55,24 @@ inline f32 SquareRoot(f32 value)
     return f32(sqrt(value));
 }
 
-inline i32 Mod(int a, int b)
+inline i32 Mod(i32 a, i32 b)
 {
     if(b < 0) b = -b;
     i32 result = a % b;
     return result < 0 ? result + b: result;
+}
+
+inline f32 Mod(f32 a, f32 b)
+{
+    // TODO(mevex): Is this ok? Take some time to think about it
+    if(b < 0) b = -b;
+    f32 result = (b-a) > 0 ? a : a-b;
+    return result < 0 ? result + b: result;
+}
+
+inline f32 Boundary(f32 value, f32 low, f32 high)
+{
+    return Mod((value - low), (high - low)) + low;
 }
 
 union v2
@@ -96,11 +109,6 @@ union v2
         this->y = 0.0f;
     }
 };
-
-inline f32 InnerProduct(v2 a, v2 b)
-{
-    return a.x*b.x + a.y*b.y;
-}
 
 inline v2 operator+(v2 a, v2 b)
 {
@@ -154,4 +162,16 @@ inline v2 operator/=(v2 &v, f32 value)
 {
     v = v / value;
     return v;
+}
+
+inline f32 InnerProduct(v2 a, v2 b)
+{
+    return a.x*b.x + a.y*b.y;
+}
+
+inline v2 Normalize(v2 v)
+{
+    f32 vLength = SquareRoot(InnerProduct(v, v));
+    f32 div = 1.0f / vLength;
+    return v*div;
 }

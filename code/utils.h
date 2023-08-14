@@ -7,8 +7,8 @@
 inline ui32 FindFirstLowBitSet(i32 value)
 {
     unsigned long result;
-    ui8 found = _BitScanForward(&result, value);
-    return (found) ? result: -1;
+    _BitScanForward(&result, value);
+    return result;
 }
 
 template <typename T>
@@ -19,7 +19,12 @@ inline void Swap(T &a, T &b)
     b = temp;
 }
 
-bool AlmostZero(f32 value)
+inline bool AlmostZero(f32 value)
 {
     return value < ZERO && value > -ZERO;
+}
+
+inline bool AlmostZero(f32 value, f32 zero)
+{
+    return value < zero && value > -zero;
 }

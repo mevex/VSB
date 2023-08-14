@@ -137,12 +137,12 @@ void DrawFilledCircle(v2 p, f32 r, ui32 color, render_buffer buffer)
                 else
                 {
                     f32 delta = (distance - r);
-                    f32 floatAlpha = (1 - delta) / fade;
+                    f32 floatAlpha = (fade - delta) / fade;
                     
                     ui8 alpha = ui8(RoundToInt32(floatAlpha * 255.0f));
                     ui8 red   = ExtractR(color);
-                    ui8 green = ExtractB(color);
-                    ui8 blue  = ExtractG(color);
+                    ui8 green = ExtractG(color);
+                    ui8 blue  = ExtractB(color);
                     
                     ui32 newColor = VSB_RGBA(red, green, blue, alpha);
                     DrawPixel(v2(x,y), newColor, buffer);
@@ -154,13 +154,27 @@ void DrawFilledCircle(v2 p, f32 r, ui32 color, render_buffer buffer)
 
 void FillEntireBuffer(render_buffer buffer, ui32 color)
 {
-    ui32 *pixel = (ui32 *)buffer.memory;
-    for(i32 y = 0; y < buffer.height; y++)
+    ui32 bytesPerPizel = 4;
+    ui32 bufferBytes = buffer.width*buffer.height*bytesPerPizel;
+    
+    ui32 loopCycles = bufferBytes / 32;
+    ui32 remainingPixels = (bufferBytes % 32) / bytesPerPizel;
+    
+    // NOTE(mevex): make sure that we have entire pixels left
+    Assert(((bufferBytes % 32) % bytesPerPizel) == 0);
+    
+    __m256i c = _mm256_set1_epi32(color);
+    __m256i *dest = (__m256i *)buffer.memory;
+    for(ui32 i = 0; i < loopCycles; ++i)
     {
-        for(i32 x = 0; x < buffer.width; x++)
-        {
-            *pixel++ = color;
-        }
+        _mm256_store_si256(dest, c);
+        ++dest;
+    }
+    
+    ui32 *remainingDest = (ui32 *)dest;
+    for(ui32 i = 0; i < remainingPixels; ++i)
+    {
+        *remainingDest++ = color;
     }
 }
 
