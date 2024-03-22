@@ -124,6 +124,11 @@ struct bmp_header
     i32 blueMask;
     i32 alphaMask;
 };
+
+struct png_header
+{
+    byte i;
+};
 #pragma pack(pop)
 
 struct bmp_image
@@ -135,6 +140,13 @@ struct bmp_image
     i32 xAlign;
     i32 yAlign;
 };
+
+#if 0
+struct png_image
+{
+    void* voidness;
+};
+#endif
 
 struct tile_coordinates
 {
@@ -173,14 +185,61 @@ struct level
     room rooms[2][2];
 };
 
+typedef enum particleColor
+{
+    red,
+    green,
+    blue,
+    pink,
+    yellow,
+    orange,
+    
+    COUNT,
+}
+particleColor;
+
+struct particle
+{
+    particleColor color;
+    v2 position;
+    v2 velocity;
+};
+
+#include <ctime>
+#include <cstdlib>
+#include <immintrin.h>
+
+inline f32 GetRand()
+{
+    return f32(f32(rand()) / f32(RAND_MAX));
+}
+
+inline f32 GetRandInRange(f32 min, f32 max)
+{
+    return min + GetRand()*(max-min);
+}
+
+#define N_PARTICLES 10
 struct game_state
 {
+#if 1
     bmp_image backgroundBMP;
     bmp_image playerFront[3];
+    bmp_image testBMP;
     
     v2 playerVelocity;
     level level;
     tile_coordinates playerTilePos;
+#endif
+    
+    v2 p0Pos;
+    
+    particle particles[N_PARTICLES];
+    f32 forceMatrix[particleColor::COUNT][particleColor::COUNT];
+    
+    f32 maxRange;
+    f32 minRange;
+    f32 baseRepulsiveForce;
 };
 
 #define GAME_UPDATE_AND_RENDER(name) void name(game_memory *gameMemory, game_input *input)

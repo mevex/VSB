@@ -613,7 +613,7 @@ int WINAPI wWinMain(HINSTANCE instanceHandle,
                     // NOTE: beginningFrameTime gets updated here
                     // so we dont miss the profile time
                     beginningFrameTime = Win32GetTime();
-#if 0
+#if 1
                     Win32ProfileCode(&lastCounter, &lastCycleCount, frameTimeMS);
 #endif
                 }

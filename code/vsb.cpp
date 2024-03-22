@@ -116,6 +116,43 @@ void DrawRectangle(v2 p, v2 size, ui32 color, render_buffer buffer)
     }
 }
 
+inline float DistanceFromCircle(v2 P, f32 R)
+{
+    // x2 + y2 = r2
+    f32 Distance = Abs(P.x*P.x + P.y*P.y -R*R);
+    return Distance;
+}
+
+void DrawCircle(v2 P, f32 R, ui32 Color, render_buffer Buffer)
+{
+    // NOTE(mevex): This is taken from Casey's video about Efficient DDA Circle Outlines
+    // https://youtu.be/JtgQJT08J1g
+    // However, since we live in the modern era and computing a few floats multiply
+    // is not a big deal, the extreme optimization in Digital Differential Analyzer
+    // style is not implemented for the sake of understability.
+    
+    i32 X = RoundToInt32(R);
+    i32 Y = 0;
+    
+    while(X >= Y)
+    {
+        DrawPixel(v2(P.x + X, P.y + Y), Color, Buffer);
+        DrawPixel(v2(P.x - X, P.y + Y), Color, Buffer);
+        DrawPixel(v2(P.x + X, P.y - Y), Color, Buffer);
+        DrawPixel(v2(P.x - X, P.y - Y), Color, Buffer);
+        DrawPixel(v2(P.x + Y, P.y + X), Color, Buffer);
+        DrawPixel(v2(P.x - Y, P.y + X), Color, Buffer);
+        DrawPixel(v2(P.x + Y, P.y - X), Color, Buffer);
+        DrawPixel(v2(P.x - Y, P.y - X), Color, Buffer);
+        
+        ++Y;
+        if(DistanceFromCircle(v2(X-1, Y), R) < DistanceFromCircle(v2(X, Y), R))
+        {
+            --X;
+        }
+    }
+}
+
 void DrawFilledCircle(v2 p, f32 r, ui32 color, render_buffer buffer)
 {
     f32 fade = 0.5;
@@ -177,6 +214,15 @@ void FillEntireBuffer(render_buffer buffer, ui32 color)
         *remainingDest++ = color;
     }
 }
+
+#if 0
+png_image LoadPNG(debug_read_file *ReadFile, char *filename)
+{
+    // TODO(mevex): Implement this
+    png_image res = {};
+    return res;
+}
+#endif
 
 bmp_image LoadBMP(debug_read_file *ReadFile, char *filename)
 {
@@ -401,8 +447,29 @@ void DrawTileRoom(level *level, tile_coordinates playerP, render_buffer buffer)
     }
 }
 
+f32 GetParticleAttraction(f32 distance, particleColor leadingColor, particleColor otherColor, game_state *gs)
+{
+    if(distance > gs->maxRange || distance == gs->minRange)
+    {
+        return 0;
+    }
+    else if(gs->minRange < distance && distance < gs->maxRange)
+    {
+        f32 attraction = gs->forceMatrix[leadingColor][otherColor];
+        f32 positiveRange = gs->maxRange - gs->minRange;
+        
+        return attraction * (gs->maxRange - (Abs(2*distance - positiveRange)/positiveRange));
+    }
+    else
+    {
+        // distance < gs->minRange
+        return (distance/gs->minRange) - gs->baseRepulsiveForce;
+    }
+}
+
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
+#if 1  // MAIN
     // TODO: we use the allocated memory like this, FOR NOW!
     game_state *gameState = (game_state *)gameMemory->memory;
     
@@ -460,11 +527,14 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     
     if(!gameMemory->initialized)
     {
+        
         // NOTE: game state and stuff initialization
         gameState->backgroundBMP = LoadBMP(gameMemory->DebugReadFile, "test_background.bmp");
         gameState->playerFront[0] = LoadBMP(gameMemory->DebugReadFile, "test_player_front_1.bmp");
         gameState->playerFront[1] = LoadBMP(gameMemory->DebugReadFile, "test_player_front_2.bmp");
         gameState->playerFront[2] = LoadBMP(gameMemory->DebugReadFile, "test_player_front_3.bmp");
+        // TODO(mevex): Fix BMP compression
+        // gameState->testBMP = LoadBMP(gameMemory->DebugReadFile, "png_test.png");
         
         gameState->level.tileSidePixels = 80.0f;
         gameState->level.tileSideMeters = 1.5f;
@@ -489,6 +559,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         
         gameMemory->initialized = true;
     }
+    
     // NOTE(mevex): These are in meters
     // TODO: make sure the input vectors are max length 1
     Assert(Abs(input->gamepad.leftStick.x) <= 1);
@@ -540,4 +611,146 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     DrawFilledCircle(playerPos, 20, VSB_RGB(255,0,0), gameMemory->backBuffer);
     DrawLine(v2(10, 10), v2(100, 31), VSB_RGB(0,255,0), gameMemory->backBuffer);
     DrawLine(v2(90, 10), v2(40, 310), VSB_RGB(0,255,0), gameMemory->backBuffer);
+    
+    DrawCircle(playerPos, 25, VSB_RGB(0,128,50), gameMemory->backBuffer);
+    
+#else // MAIN
+    
+    game_state *gameState = (game_state *)gameMemory->memory;
+    
+    // NOTE(mevex): Initialization
+    if(!gameMemory->initialized)
+    {
+        // TODO(mevex): This are not working
+        gameState->maxRange = 400;
+        gameState->minRange = 100;
+        gameState->baseRepulsiveForce = 1.0f;
+        
+        srand(ui32(time(NULL)));
+#if 0
+        gameState->forceMatrix[red][red] = 5.0f;
+        gameState->forceMatrix[red][green] = 2.5f;
+        gameState->forceMatrix[red][blue] = 0.0f;
+        gameState->forceMatrix[green][red] = 0.0f;
+        gameState->forceMatrix[green][green] = 5.0f;
+        gameState->forceMatrix[green][blue] = 2.5f;
+        gameState->forceMatrix[blue][red] = 2.5f;
+        gameState->forceMatrix[blue][green] = 0.0f;
+        gameState->forceMatrix[blue][blue] = 5.0f;
+#else
+        for(int i = 0; i < particleColor::COUNT; ++i)
+        {
+            for(int j = 0; j < particleColor::COUNT; ++j)
+            {
+                gameState->forceMatrix[i][j] = GetRandInRange(-1.0f, 1.0f);
+            }
+        }
+#endif
+        
+        i32 bufferWidth = gameMemory->backBuffer.width;
+        i32 bufferHeight = gameMemory->backBuffer.height;
+        for(int i = 0; i < N_PARTICLES; ++i)
+        {
+#if 0
+            gameState->particles[i] = {particleColor(rand()%particleColor::COUNT), v2(GetRandInRange(-100.0f, 100.0f), GetRandInRange(-100.0f, 100.0f))};
+#else
+#endif
+            gameState->particles[i] = {particleColor(rand()%particleColor::COUNT), v2(GetRandInRange(-0.5f, 0.5f)*bufferWidth, GetRandInRange(-0.5f, 0.5f)*bufferHeight)};
+        }
+        
+        gameState->p0Pos = gameState->particles[0].position;
+        gameMemory->initialized = true;
+    }
+    
+    
+    // NOTE(mevex): Update particle position
+    f32 deltaTime = input->dTime * 1.0f;
+    for(int i = 0; i < N_PARTICLES; ++i)
+    {
+        particle *pi = &gameState->particles[i];
+        v2 acceleration = {};
+        for(int j = 0; j < N_PARTICLES; ++j)
+        {
+            if(i == j) continue;
+            
+            particle *pj = &gameState->particles[j];
+            
+            v2 distanceVector = pi->position - pj->position;
+            distanceVector.x = Boundary(distanceVector.x, -gameMemory->backBuffer.width*0.5f, gameMemory->backBuffer.width*0.5f);
+            distanceVector.y = Boundary(distanceVector.y, -gameMemory->backBuffer.height*0.5f, gameMemory->backBuffer.height*0.5f);
+            
+            f32 distance = SquareRoot(InnerProduct(distanceVector, distanceVector));
+            // TODO(mevex): Correct the attraction functions so it works properly
+            f32 attraction = -GetParticleAttraction(distance, pi->color, pj->color, gameState)*0;
+            if(attraction != 0)
+            {
+                v2 distanceNorm = Normalize(distanceVector);
+                acceleration += distanceNorm * attraction;
+            }
+        }
+#if 0
+        // NOTE(mevex): For desperado situations
+        acceleration = {};
+        pi->velocity = {};
+#else
+        f32 friction = 0.8f;
+        pi->velocity = friction*pi->velocity + (acceleration)*deltaTime;
+        pi->velocity.x = Clamp(pi->velocity.x, -1000.0f, 1000.0f);
+        pi->velocity.y = Clamp(pi->velocity.y, -1000.0f, 1000.0f);
+#endif
+        pi->position = pi->position + pi->velocity*deltaTime;
+        pi->position.x = Boundary(pi->position.x, -gameMemory->backBuffer.width*0.5f, gameMemory->backBuffer.width*0.5f);
+        pi->position.y = Boundary(pi->position.y, -gameMemory->backBuffer.height*0.5f, gameMemory->backBuffer.height*0.5f);
+    }
+    
+    
+    // NOTE(mevex): Draw particles
+    FillEntireBuffer(gameMemory->backBuffer, 0);
+    for(int i = 0; i < N_PARTICLES; ++i)
+    {
+        particle *p = &gameState->particles[i];
+        ui32 color = 0;
+        
+        switch(p->color)
+        {
+            case red:
+            {
+                color = VSB_RGB(255,0,0);
+                break;
+            };
+            case green:
+            {
+                color = VSB_RGB(0,255,0);
+                break;
+            };
+            case blue:
+            {
+                color = VSB_RGB(0,0,255);
+                break;
+            };
+            case pink:
+            {
+                color = VSB_RGB(255,0,255);
+                break;
+            };
+            case yellow:
+            {
+                color = VSB_RGB(0,255,255);
+                break;
+            };
+            case orange:
+            {
+                color = VSB_RGB(255,255,0);
+                break;
+            };
+        }
+        
+        DrawFilledCircle(p->position + v2(gameMemory->backBuffer.width*0.5f, gameMemory->backBuffer.height*0.5f), 3.5f, color, gameMemory->backBuffer);
+    }
+    
+    gameState->p0Pos += input->gamepad.leftStick * 10;
+    v2 p = gameState->p0Pos + v2(gameMemory->backBuffer.width*0.5f, gameMemory->backBuffer.height*0.5f);
+    DrawFilledCircle(gameState->p0Pos + v2(gameMemory->backBuffer.width*0.5f, gameMemory->backBuffer.height*0.5f), 20.0f, VSB_RGB(255,255,0), gameMemory->backBuffer);
+    
+#endif // MAIN
 }
